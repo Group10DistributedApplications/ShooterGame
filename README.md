@@ -54,6 +54,21 @@ Running on multiple computers video: https://www.youtube.com/shorts/76W1ZtZfgFk
 
 > Provide here installation requirements and instructions. Your goal here is that anyone else following the course should be able to follow the steps and run your project.
 
+## Backend setup
+
+Requirements:
+- Java 21
+- Maven
+- Node.js (npm)
+
+Setup:
+```bash
+git clone <repo-url>
+cd ShooterGame
+./setup.ps1   # Windows
+./setup.sh    # macOS/Linux
+```
+
 # References 
 > List here the main references that you have been using in your text above (course materials, articles, webtsites, etc.)
 

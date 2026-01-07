@@ -1,0 +1,3 @@
+[submodule "backend/jspace"]
+	path = backend/jspace
+	url = https://github.com/pSpaces/jSpace.git
