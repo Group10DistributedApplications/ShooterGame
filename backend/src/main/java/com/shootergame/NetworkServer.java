@@ -33,12 +33,12 @@ public class NetworkServer extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        logger.debug("Connection opened: {}", conn.getRemoteSocketAddress());
+        logger.info("Client connected: {}", conn.getRemoteSocketAddress());
     }
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-        logger.debug("Connection closed: {} (code={}, reason={})", conn.getRemoteSocketAddress(), code, reason);
+        logger.info("Client disconnected: {} (code={}, reason={})", conn.getRemoteSocketAddress(), code, reason);
         clients.remove(conn);
     }
 
@@ -55,7 +55,7 @@ public class NetworkServer extends WebSocketServer {
                 clients.put(conn, pid);
                 space.put("player", pid);
                 conn.send(gson.toJson(Map.of("type", "registered", "playerId", pid)));
-                logger.info("Registered player {}", pid);
+                logger.info("Registered player {} (registered={})", pid, clients.size());
                 return;
             }
 
