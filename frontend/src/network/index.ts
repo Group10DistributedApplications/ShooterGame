@@ -1,13 +1,26 @@
 let ws: WebSocket | null = null;
+let sendQueue: string[] = [];
 
 export function connect(url = "ws://localhost:3000") {
   if (ws) return;
   try {
     ws = new WebSocket(url);
-    ws.onopen = () => console.log("network: connected to", url);
+    ws.onopen = () => {
+      console.log("network: connected to", url);
+      // flush queued messages
+      while (sendQueue.length > 0) {
+        const m = sendQueue.shift()!;
+        try { ws!.send(m); } catch (e) { console.error("network: flush send failed", e); }
+      }
+    };
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
+        if (data && data.type === "state" && Array.isArray(data.players)) {
+          stateHandlers.forEach((h) => h(data.players));
+          return;
+        }
+        // other message types can be handled here if needed
       } catch (e) {
         console.log("network: message (raw)", ev.data);
       }
@@ -30,23 +43,37 @@ export function disconnect() {
 }
 
 export function sendRaw(message: string) {
-  if (!ws) return;
-  ws.send(message);
+  if (!ws) {
+    connect();
+    sendQueue.push(message);
+    return;
+  }
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(message);
+  } else {
+    sendQueue.push(message);
+  }
 }
 
 export function sendInput(playerId: number, action: string) {
-  if (!ws) return;
   const msg = JSON.stringify({ type: "input", playerId, action });
-  ws.send(msg);
+  sendRaw(msg);
 }
 
 export function register(playerId: number) {
-  if (!ws) return;
   const msg = JSON.stringify({ type: "register", playerId });
-  ws.send(msg);
+  sendRaw(msg);
 }
 
 export function ping() {
-  if (!ws) return;
-  ws.send(JSON.stringify({ type: "ping" }));
+  sendRaw(JSON.stringify({ type: "ping" }));
+}
+
+let stateHandlers: Array<(players: any[]) => void> = [];
+
+export function onState(cb: (players: any[]) => void) {
+  stateHandlers.push(cb);
+  return () => {
+    stateHandlers = stateHandlers.filter((h) => h !== cb);
+  };
 }

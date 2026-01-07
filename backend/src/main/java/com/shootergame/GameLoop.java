@@ -1,6 +1,7 @@
 package com.shootergame;
 
 import java.util.Map;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -72,6 +73,25 @@ public class GameLoop {
 
     private void broadcastState() {
         try {
+            // ensure registered players (from tuple space) are present in players map
+            try {
+                List<Object[]> regs = space.queryAll(new ActualField("player"), new FormalField(Integer.class));
+                if (regs != null) {
+                    for (Object[] r : regs) {
+                        if (r.length >= 2 && r[1] instanceof Number) {
+                            int pid = ((Number) r[1]).intValue();
+                            players.computeIfAbsent(pid, PlayerState::new);
+                        } else {
+                            logger.debug("Unexpected player tuple format: {}", (Object) r);
+                        }
+                    }
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                logger.debug("Failed to query registered players", e);
+            }
+
             String out = gson.toJson(Map.of("type", "state", "players", players.values()));
             logger.debug("Broadcasting state");
             server.broadcast(out);

@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import Player from "./player/Player";
 import InputManager from "./input/InputManager";
+import * as net from "../network";
 import Projectile from "./projectile/Projectile";
 import type { ProjectileConfig } from "./projectile/Projectile";
 
@@ -10,15 +11,59 @@ export default class GameScene extends Phaser.Scene {
   private projectiles!: Projectile[];
   private shootCooldown = 200; // ms between shots
   private lastShotTime = 0;
+  private remotePlayers: Map<number, Player> = new Map();
+  private localPlayerId: number = Math.floor(Math.random() * 9000) + 1000; // random 1000-9999
+  private debugText?: Phaser.GameObjects.Text;
 
   constructor() {
     super("game");
   }
 
   create() {
-    this.player = new Player(this, 400, 300);
-    this.inputManager = new InputManager(this);
+    this.player = new Player(this, 400, 300, 0x00ff00);
+    net.connect();
+    // register with a locally-generated unique id to avoid collisions
+    net.register(this.localPlayerId);
+    this.inputManager = new InputManager(this, this.localPlayerId);
+    net.onState((players) => this.handleState(players));
+    this.debugText = this.add.text(8, 8, "", { font: "14px monospace", color: "#ffffff" }).setDepth(1000);
     this.projectiles = [];
+  }
+
+  private handleState(players: any[]) {
+    const seen = new Set<number>();
+    for (const p of players) {
+      const id = p.id as number;
+      seen.add(id);
+      if (id === this.localPlayerId) {
+        // optionally update local prediction reconciliation here
+        continue;
+      }
+      let rp = this.remotePlayers.get(id);
+      if (!rp) {
+        rp = new Player(this, p.x || 0, p.y || 0, 0x0000ff, 30);
+        this.remotePlayers.set(id, rp);
+      }
+      rp.setPosition(p.x || 0, p.y || 0);
+    }
+
+    // remove remote players not present anymore
+    for (const [id, rp] of Array.from(this.remotePlayers.entries())) {
+      if (!seen.has(id)) {
+        rp.sprite.destroy();
+        this.remotePlayers.delete(id);
+      }
+    }
+
+    // update debug HUD
+    if (this.debugText) {
+      const lines = [] as string[];
+      lines.push(`local=${this.localPlayerId} players=${players.length} remotes=${this.remotePlayers.size}`);
+      for (const p of players) {
+        lines.push(`${p.id}: x=${Number(p.x).toFixed(1)} y=${Number(p.y).toFixed(1)}`);
+      }
+      this.debugText.setText(lines);
+    }
   }
 
   update(time: number, delta: number) {

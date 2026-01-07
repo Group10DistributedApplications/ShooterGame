@@ -5,8 +5,8 @@ export default class Player {
   public facing: "up" | "down" | "left" | "right" = "up";
   public speed: number = 200;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
-    this.sprite = scene.add.rectangle(x, y, 30, 30, 0x00ff00);
+  constructor(scene: Phaser.Scene, x: number, y: number, color = 0x00ff00, size = 30) {
+    this.sprite = scene.add.rectangle(x, y, size, size, color);
   }
 
   setPosition(x: number, y: number) {
