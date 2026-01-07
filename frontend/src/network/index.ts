@@ -5,7 +5,13 @@ export function connect(url = "ws://localhost:3000") {
   try {
     ws = new WebSocket(url);
     ws.onopen = () => console.log("network: connected to", url);
-    ws.onmessage = (ev) => console.log("network: message", ev.data);
+    ws.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+      } catch (e) {
+        console.log("network: message (raw)", ev.data);
+      }
+    };
     ws.onclose = () => {
       console.log("network: closed");
       ws = null;
@@ -23,7 +29,24 @@ export function disconnect() {
   ws = null;
 }
 
-export function send(message: string) {
+export function sendRaw(message: string) {
   if (!ws) return;
   ws.send(message);
+}
+
+export function sendInput(playerId: number, action: string) {
+  if (!ws) return;
+  const msg = JSON.stringify({ type: "input", playerId, action });
+  ws.send(msg);
+}
+
+export function register(playerId: number) {
+  if (!ws) return;
+  const msg = JSON.stringify({ type: "register", playerId });
+  ws.send(msg);
+}
+
+export function ping() {
+  if (!ws) return;
+  ws.send(JSON.stringify({ type: "ping" }));
 }
