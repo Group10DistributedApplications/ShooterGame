@@ -62,11 +62,8 @@ public class NetworkServer extends WebSocketServer {
             if ("input".equals(type) && obj.has("playerId") && obj.has("action")) {
                 int pid = obj.get("playerId").getAsInt();
                 String action = obj.get("action").getAsString();
+                // write intent to tuple space only; do not broadcast raw input events
                 space.put("input", pid, action);
-                long ts = System.currentTimeMillis();
-                space.put("event", pid, action, ts);
-                String out = gson.toJson(Map.of("type", "event", "playerId", pid, "action", action, "ts", ts));
-                broadcast(out);
                 logger.debug("Stored input: player={} action={}", pid, action);
                 return;
             }

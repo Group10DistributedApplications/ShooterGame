@@ -35,35 +35,35 @@ public class GameLoop {
         Thread consumer = new Thread(() -> {
             while (running) {
                 try {
+                    // consume input tuples and apply intent (no immediate position changes)
                     Object[] ev = space.get(
-                        new ActualField("event"),
+                        new ActualField("input"),
                         new FormalField(Integer.class),
-                        new FormalField(String.class),
-                        new FormalField(Long.class)
+                        new FormalField(String.class)
                     );
 
-                    int pid = (int) ev[1];
+                    int pid = ((Number) ev[1]).intValue();
                     String action = (String) ev[2];
-                    long ts = (long) ev[3];
 
                     PlayerState ps = players.computeIfAbsent(pid, PlayerState::new);
-                    ps.lastAction = action;
-                    ps.lastTs = ts;
-                    ps.applyAction(action);
-                    logger.debug("Player move id={} action={} pos=({}, {})", pid, action, ps.x, ps.y);
+                    ps.setAction(action);
+                    ps.lastTs = System.currentTimeMillis();
+                    logger.debug("Consumed input id={} action={}", pid, action);
 
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
                 } catch (Exception e) {
-                    logger.error("Error in event consumer", e);
+                    logger.error("Error in input consumer", e);
                 }
             }
         }, "GameLoop-Consumer");
         consumer.setDaemon(true);
         consumer.start();
 
-        tickExecutor.scheduleAtFixedRate(this::broadcastState, 0, 50, TimeUnit.MILLISECONDS);
+        // schedule a fixed-rate simulation tick (50ms)
+        lastTick = System.nanoTime();
+        tickExecutor.scheduleAtFixedRate(this::tick, 0, 50, TimeUnit.MILLISECONDS);
     }
 
     public void stop() {
@@ -100,27 +100,53 @@ public class GameLoop {
         }
     }
 
+    private volatile long lastTick = 0L;
+
+    private void tick() {
+        try {
+            long now = System.nanoTime();
+            double dt = (lastTick == 0L) ? 0.05 : (now - lastTick) / 1_000_000_000.0;
+            lastTick = now;
+
+            for (PlayerState ps : players.values()) {
+                ps.update(dt);
+            }
+
+            broadcastState();
+        } catch (Exception e) {
+            logger.error("Error in tick", e);
+        }
+    }
+
     public static class PlayerState {
         public final int id;
-        public double x = 0.0;
-        public double y = 0.0;
-        public String lastAction = "";
+        public double x = 400.0;
+        public double y = 300.0;
+        // intent / direction
+        public int dirX = 0;
+        public int dirY = 0;
         public long lastTs = 0L;
 
         public PlayerState(int id) {
             this.id = id;
         }
 
-        public void applyAction(String action) {
-            double speed = 1.0;
+        public void setAction(String action) {
             switch (action) {
-                case "UP":    y -= speed; break;
-                case "DOWN":  y += speed; break;
-                case "LEFT":  x -= speed; break;
-                case "RIGHT": x += speed; break;
+                case "UP":    this.dirY = -1; this.dirX = 0; break;
+                case "DOWN":  this.dirY = 1; this.dirX = 0; break;
+                case "LEFT":  this.dirX = -1; this.dirY = 0; break;
+                case "RIGHT": this.dirX = 1; this.dirY = 0; break;
+                case "STOP":  this.dirX = 0; this.dirY = 0; break;
                 case "FIRE":  break;
                 default: break;
             }
+        }
+
+        public void update(double dt) {
+            double speed = 200.0; // units per second
+            x += dirX * speed * dt;
+            y += dirY * speed * dt;
         }
     }
 
