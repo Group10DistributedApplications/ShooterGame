@@ -33,12 +33,12 @@ public class NetworkServer extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-        logger.info("ws: connection opened {}", conn.getRemoteSocketAddress());
+        logger.debug("Connection opened: {}", conn.getRemoteSocketAddress());
     }
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
-        logger.info("ws: connection closed {} (code={}, reason={})", conn.getRemoteSocketAddress(), code, reason);
+        logger.debug("Connection closed: {} (code={}, reason={})", conn.getRemoteSocketAddress(), code, reason);
         clients.remove(conn);
     }
 
@@ -48,30 +48,26 @@ public class NetworkServer extends WebSocketServer {
             JsonObject obj = gson.fromJson(message, JsonObject.class);
             String type = obj.has("type") ? obj.get("type").getAsString() : "";
 
-            logger.debug("ws: received message from {}: {}", conn.getRemoteSocketAddress(), message);
+            logger.debug("Received message from {}", conn.getRemoteSocketAddress());
 
             if ("register".equals(type) && obj.has("playerId")) {
                 int pid = obj.get("playerId").getAsInt();
                 clients.put(conn, pid);
-                // Store registration in tuple space
                 space.put("player", pid);
                 conn.send(gson.toJson(Map.of("type", "registered", "playerId", pid)));
-                logger.info("player registered: {} from {}", pid, conn.getRemoteSocketAddress());
+                logger.info("Registered player {}", pid);
                 return;
             }
 
             if ("input".equals(type) && obj.has("playerId") && obj.has("action")) {
                 int pid = obj.get("playerId").getAsInt();
                 String action = obj.get("action").getAsString();
-                // Put input into tuple space
                 space.put("input", pid, action);
-                // Also put an event tuple to be observable
                 long ts = System.currentTimeMillis();
                 space.put("event", pid, action, ts);
-                // Broadcast to all clients
                 String out = gson.toJson(Map.of("type", "event", "playerId", pid, "action", action, "ts", ts));
                 broadcast(out);
-                logger.info("input stored: player={} action={} ts={}", pid, action, ts);
+                logger.debug("Stored input: player={} action={}", pid, action);
                 return;
             }
 
@@ -83,23 +79,23 @@ public class NetworkServer extends WebSocketServer {
             conn.send(gson.toJson(Map.of("type", "error", "message", "unknown message type")));
 
         } catch (Exception e) {
-            logger.error("ws: error processing message", e);
+            logger.error("Error processing message", e);
             try {
                 conn.send(gson.toJson(Map.of("type", "error", "message", e.getMessage())));
             } catch (Exception ex) {
-                logger.error("ws: failed to send error to client", ex);
+                logger.error("Failed to send error to client", ex);
             }
         }
     }
 
     @Override
     public void onError(WebSocket conn, Exception ex) {
-        logger.error("ws: error {} -> {}", (conn != null ? conn.getRemoteSocketAddress() : "server"), ex.getMessage(), ex);
+        logger.error("WebSocket error ({}): {}", (conn != null ? conn.getRemoteSocketAddress() : "server"), ex.getMessage(), ex);
     }
 
     @Override
     public void onStart() {
-        logger.info("ws: server started on {}", getAddress());
+        logger.info("WebSocket server started on {}", getAddress());
     }
 
 }

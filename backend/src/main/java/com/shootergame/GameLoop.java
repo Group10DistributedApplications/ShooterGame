@@ -31,7 +31,6 @@ public class GameLoop {
     }
 
     public void start() {
-        // Event consumer thread (blocks on incoming event tuples)
         Thread consumer = new Thread(() -> {
             while (running) {
                 try {
@@ -50,20 +49,19 @@ public class GameLoop {
                     ps.lastAction = action;
                     ps.lastTs = ts;
                     ps.applyAction(action);
-                    logger.info("player move: id={} action={} pos=({}, {}) ts={}", pid, action, ps.x, ps.y, ts);
+                    logger.debug("Player move id={} action={} pos=({}, {})", pid, action, ps.x, ps.y);
 
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    logger.error("Error in event consumer", e);
                 }
             }
         }, "GameLoop-Consumer");
         consumer.setDaemon(true);
         consumer.start();
 
-        // Tick broadcaster (authoritative state)
         tickExecutor.scheduleAtFixedRate(this::broadcastState, 0, 50, TimeUnit.MILLISECONDS);
     }
 
@@ -75,10 +73,10 @@ public class GameLoop {
     private void broadcastState() {
         try {
             String out = gson.toJson(Map.of("type", "state", "players", players.values()));
-            logger.debug("broadcasting state: {}", out);
+            logger.debug("Broadcasting state");
             server.broadcast(out);
         } catch (Exception e) {
-            logger.error("error broadcasting state", e);
+            logger.error("Error broadcasting state", e);
         }
     }
 
@@ -100,7 +98,7 @@ public class GameLoop {
                 case "DOWN":  y += speed; break;
                 case "LEFT":  x -= speed; break;
                 case "RIGHT": x += speed; break;
-                case "FIRE":  /* handle shooting */ break;
+                case "FIRE":  break;
                 default: break;
             }
         }
