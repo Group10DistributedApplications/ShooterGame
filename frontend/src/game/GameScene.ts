@@ -91,6 +91,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
+    // update local facing from input so FIRE uses correct heading
+    const dir = this.inputManager.getDirection();
+    if (dir) this.player.facing = dir;
     // Update remote projectiles (interpolate locally between server updates)
     for (const p of this.remoteProjectiles.values()) {
       p.sprite.x += p.vx * delta / 1000;
