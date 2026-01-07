@@ -60,6 +60,7 @@ Requirements:
 - Java 21
 - Maven
 - Node.js (npm)
+- Git
 
 Setup:
 ```bash
