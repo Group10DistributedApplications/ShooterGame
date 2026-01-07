@@ -36,15 +36,17 @@ export default class GameScene extends Phaser.Scene {
       const id = p.id as number;
       seen.add(id);
       if (id === this.localPlayerId) {
-        // optionally update local prediction reconciliation here
+        // apply authoritative server state for local player
+        this.player.setTarget(p.x || 0, p.y || 0);
         continue;
       }
+
       let rp = this.remotePlayers.get(id);
       if (!rp) {
         rp = new Player(this, p.x || 0, p.y || 0, 0x0000ff, 30);
         this.remotePlayers.set(id, rp);
       }
-      rp.setPosition(p.x || 0, p.y || 0);
+      rp.setTarget(p.x || 0, p.y || 0);
     }
 
     // remove remote players not present anymore
@@ -67,27 +69,6 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
-    const move = (this.player.speed * delta) / 1000;
-
-    // Player movement and facing
-    const direction = this.inputManager.getDirection();
-    if (direction) {
-      switch (direction) {
-        case "left":
-          this.player.sprite.x -= move;
-          break;
-        case "right":
-          this.player.sprite.x += move;
-          break;
-        case "up":
-          this.player.sprite.y -= move;
-          break;
-        case "down":
-          this.player.sprite.y += move;
-          break;
-      }
-      this.player.facing = direction;
-    }
 
     if (this.inputManager.isSpacePressed() && time - this.lastShotTime > this.shootCooldown) {
       this.shootProjectile();
@@ -99,6 +80,13 @@ export default class GameScene extends Phaser.Scene {
       p.sprite.x += p.vx * delta / 1000;
       p.sprite.y += p.vy * delta / 1000;
     }
+
+    // Update remote players
+    for (const rp of this.remotePlayers.values()) {
+      rp.update(delta);
+    }
+    // Update local player 
+    this.player.update(delta);
 
     // Remove projectiles that go off screen
     this.projectiles = this.projectiles.filter(p =>
