@@ -17,8 +17,8 @@ export default class InputManager {
       net.sendInput(this.playerId, action);
     };
 
-    const stopAction = () => {
-      net.sendInput(this.playerId, "STOP");
+    const stopAction = (action: string) => {
+      net.sendInput(this.playerId, "STOP_" + action);
     };
 
     keyboard.on("keydown-LEFT", () => startAction("LEFT"));
@@ -26,10 +26,10 @@ export default class InputManager {
     keyboard.on("keydown-UP", () => startAction("UP"));
     keyboard.on("keydown-DOWN", () => startAction("DOWN"));
 
-    keyboard.on("keyup-LEFT", stopAction);
-    keyboard.on("keyup-RIGHT", stopAction);
-    keyboard.on("keyup-UP", stopAction);
-    keyboard.on("keyup-DOWN", stopAction);
+    keyboard.on("keyup-LEFT", () => stopAction("LEFT"));
+    keyboard.on("keyup-RIGHT", () => stopAction("RIGHT"));
+    keyboard.on("keyup-UP", () => stopAction("UP"));
+    keyboard.on("keyup-DOWN", () => stopAction("DOWN"));
 
     keyboard.on("keydown-SPACE", () => net.sendInput(this.playerId, "FIRE"));
   }

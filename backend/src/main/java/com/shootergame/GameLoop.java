@@ -46,7 +46,7 @@ public class GameLoop {
                     String action = (String) ev[2];
 
                     PlayerState ps = players.computeIfAbsent(pid, PlayerState::new);
-                    ps.setAction(action);
+                    ps.applyInput(action);
                     ps.lastTs = System.currentTimeMillis();
                     logger.debug("Consumed input id={} action={}", pid, action);
 
@@ -120,33 +120,42 @@ public class GameLoop {
 
     public static class PlayerState {
         public final int id;
-        public double x = 400.0;
-        public double y = 300.0;
-        // intent / direction
-        public int dirX = 0;
-        public int dirY = 0;
+        public double x = 400.0, y = 300.0;
+
+        private boolean up = false, down = false, left = false, right = false;
         public long lastTs = 0L;
 
         public PlayerState(int id) {
             this.id = id;
         }
 
-        public void setAction(String action) {
+        public void applyInput(String action) {
             switch (action) {
-                case "UP":    this.dirY = -1; this.dirX = 0; break;
-                case "DOWN":  this.dirY = 1; this.dirX = 0; break;
-                case "LEFT":  this.dirX = -1; this.dirY = 0; break;
-                case "RIGHT": this.dirX = 1; this.dirY = 0; break;
-                case "STOP":  this.dirX = 0; this.dirY = 0; break;
-                case "FIRE":  break;
+                case "UP": up = true; break;
+                case "DOWN": down = true; break;
+                case "LEFT": left = true; break;
+                case "RIGHT": right = true; break;
+
+                case "STOP_UP": up = false; break;
+                case "STOP_DOWN": down = false; break;
+                case "STOP_LEFT": left = false; break;
+                case "STOP_RIGHT": right = false; break;
+
                 default: break;
             }
         }
 
         public void update(double dt) {
-            double speed = 200.0; // units per second
-            x += dirX * speed * dt;
-            y += dirY * speed * dt;
+            double speed = 200.0;
+            int dx = 0, dy = 0;
+
+            if (up) dy -= 1;
+            if (down) dy += 1;
+            if (left) dx -= 1;
+            if (right) dx += 1;
+
+            x += dx * speed * dt;
+            y += dy * speed * dt;
         }
     }
 
