@@ -62,9 +62,10 @@ public class NetworkServer extends WebSocketServer {
             if ("input".equals(type) && obj.has("playerId") && obj.has("action")) {
                 int pid = obj.get("playerId").getAsInt();
                 String action = obj.get("action").getAsString();
-                // write intent to tuple space only; do not broadcast raw input events
-                space.put("input", pid, action);
-                logger.debug("Stored input: player={} action={}", pid, action);
+                String payload = obj.has("payload") ? obj.get("payload").getAsString() : "";
+                // write intent and optional payload to tuple space only; do not broadcast raw input events
+                space.put("input", pid, action, payload);
+                logger.debug("Stored input: player={} action={} payload={}", pid, action, payload);
                 return;
             }
 

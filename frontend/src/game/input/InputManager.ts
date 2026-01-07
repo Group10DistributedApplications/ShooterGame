@@ -7,7 +7,8 @@ export default class InputManager {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private playerId: number;
 
-  constructor(scene: Phaser.Scene, playerId = 1) {
+  // getFacing should return one of 'up'|'down'|'left'|'right'
+  constructor(scene: Phaser.Scene, playerId = 1, getFacing?: () => string | null) {
     this.cursors = scene.input.keyboard!.createCursorKeys();
     this.playerId = playerId;
 
@@ -31,7 +32,15 @@ export default class InputManager {
     keyboard.on("keyup-UP", () => stopAction("UP"));
     keyboard.on("keyup-DOWN", () => stopAction("DOWN"));
 
-    keyboard.on("keydown-SPACE", () => net.sendInput(this.playerId, "FIRE"));
+    keyboard.on("keydown-SPACE", () => {
+      if (getFacing) {
+        const f = getFacing();
+        const payload = f ? f.toUpperCase() : undefined;
+        net.sendInput(this.playerId, "FIRE", payload);
+      } else {
+        net.sendInput(this.playerId, "FIRE");
+      }
+    });
   }
 
   getDirection(): Direction {

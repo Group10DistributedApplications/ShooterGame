@@ -8,12 +8,11 @@ import type { ProjectileConfig } from "./projectile/Projectile";
 export default class GameScene extends Phaser.Scene {
   private player!: Player;
   private inputManager!: InputManager;
-  private projectiles!: Projectile[];
-  private shootCooldown = 200; // ms between shots
-  private lastShotTime = 0;
+  
   private remotePlayers: Map<number, Player> = new Map();
   private localPlayerId: number = Math.floor(Math.random() * 9000) + 1000; // random 1000-9999
   private debugText?: Phaser.GameObjects.Text;
+  private remoteProjectiles: Map<number, Projectile> = new Map();
 
   constructor() {
     super("game");
@@ -24,13 +23,13 @@ export default class GameScene extends Phaser.Scene {
     net.connect();
     // register with a locally-generated unique id to avoid collisions
     net.register(this.localPlayerId);
-    this.inputManager = new InputManager(this, this.localPlayerId);
-    net.onState((players) => this.handleState(players));
+    this.inputManager = new InputManager(this, this.localPlayerId, () => this.player.facing || "up");
+    net.onState((state) => this.handleState(state));
     this.debugText = this.add.text(8, 8, "", { font: "14px monospace", color: "#ffffff" }).setDepth(1000);
-    this.projectiles = [];
   }
 
-  private handleState(players: any[]) {
+  private handleState(state: any) {
+    const players: any[] = state.players || [];
     const seen = new Set<number>();
     for (const p of players) {
       const id = p.id as number;
@@ -57,10 +56,33 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
+    // handle server-authoritative projectiles
+    const projs: any[] = state.projectiles || [];
+    const seenProj = new Set<number>();
+    for (const pr of projs) {
+      const id = pr.id as number;
+      seenProj.add(id);
+      let rp = this.remoteProjectiles.get(id);
+      if (!rp) {
+        rp = Projectile.fromServer(this, pr);
+        this.remoteProjectiles.set(id, rp);
+      } else {
+        rp.updateFromServer(pr);
+      }
+    }
+
+    // remove projectiles not present anymore
+    for (const [id, rp] of Array.from(this.remoteProjectiles.entries())) {
+      if (!seenProj.has(id)) {
+        rp.destroy();
+        this.remoteProjectiles.delete(id);
+      }
+    }
+
     // update debug HUD
     if (this.debugText) {
       const lines = [] as string[];
-      lines.push(`local=${this.localPlayerId} players=${players.length} remotes=${this.remotePlayers.size}`);
+      lines.push(`local=${this.localPlayerId} players=${players.length} remotes=${this.remotePlayers.size} projectiles=${this.remoteProjectiles.size}`);
       for (const p of players) {
         lines.push(`${p.id}: x=${Number(p.x).toFixed(1)} y=${Number(p.y).toFixed(1)}`);
       }
@@ -69,14 +91,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
-
-    if (this.inputManager.isSpacePressed() && time - this.lastShotTime > this.shootCooldown) {
-      this.shootProjectile();
-      this.lastShotTime = time;
-    }
-
-    // Update projectiles
-    for (const p of this.projectiles) {
+    // Update remote projectiles (interpolate locally between server updates)
+    for (const p of this.remoteProjectiles.values()) {
       p.sprite.x += p.vx * delta / 1000;
       p.sprite.y += p.vy * delta / 1000;
     }
@@ -88,30 +104,14 @@ export default class GameScene extends Phaser.Scene {
     // Update local player 
     this.player.update(delta);
 
-    // Remove projectiles that go off screen
-    this.projectiles = this.projectiles.filter(p =>
-      p.sprite.x > -20 && p.sprite.x < 820 && p.sprite.y > -20 && p.sprite.y < 620
-    );
+    // Remove remote projectiles that go off screen (optional cleanup — server should remove expired ones)
+    for (const [id, p] of Array.from(this.remoteProjectiles.entries())) {
+      if (p.sprite.x <= -20 || p.sprite.x >= 820 || p.sprite.y <= -20 || p.sprite.y >= 620) {
+        p.sprite.destroy();
+        this.remoteProjectiles.delete(id);
+      }
+    }
   }
 
-  private shootProjectile() {
-    // Set projectile velocity based on facing
-    let vx = 0, vy = 0;
-    const speed = 400;
-    switch (this.player.facing) {
-      case "up": vy = -speed; break;
-      case "down": vy = speed; break;
-      case "left": vx = -speed; break;
-      case "right": vx = speed; break;
-    }
-    const config: ProjectileConfig = {
-      x: this.player.x,
-      y: this.player.y,
-      vx,
-      vy,
-      facing: this.player.facing
-    };
-    const projectile = new Projectile(this, config);
-    this.projectiles.push(projectile);
-  }
+  
 }

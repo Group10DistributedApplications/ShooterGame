@@ -23,6 +23,8 @@ public class GameLoop {
     private final NetworkServer server;
     private final Gson gson = new Gson();
     private final Map<Integer, PlayerState> players = new ConcurrentHashMap<>();
+    private final Map<Integer, ProjectileState> projectiles = new ConcurrentHashMap<>();
+    private volatile int nextProjectileId = 1;
     private final ScheduledExecutorService tickExecutor = Executors.newSingleThreadScheduledExecutor();
     private volatile boolean running = true;
 
@@ -39,16 +41,23 @@ public class GameLoop {
                     Object[] ev = space.get(
                         new ActualField("input"),
                         new FormalField(Integer.class),
+                        new FormalField(String.class),
                         new FormalField(String.class)
                     );
 
                     int pid = ((Number) ev[1]).intValue();
                     String action = (String) ev[2];
+                    String payload = (String) ev[3];
 
                     PlayerState ps = players.computeIfAbsent(pid, PlayerState::new);
-                    ps.applyInput(action);
+                    if ("FIRE".equals(action)) {
+                        ps.fireRequested = true;
+                        ps.fireFacing = payload != null ? payload : "";
+                    } else {
+                        ps.applyInput(action);
+                    }
                     ps.lastTs = System.currentTimeMillis();
-                    logger.debug("Consumed input id={} action={}", pid, action);
+                    logger.debug("Consumed input id={} action={} payload={}", pid, action, payload);
 
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -92,7 +101,7 @@ public class GameLoop {
                 logger.debug("Failed to query registered players", e);
             }
 
-            String out = gson.toJson(Map.of("type", "state", "players", players.values()));
+            String out = gson.toJson(Map.of("type", "state", "players", players.values(), "projectiles", projectiles.values()));
             logger.debug("Broadcasting state");
             server.broadcast(out);
         } catch (Exception e) {
@@ -108,8 +117,51 @@ public class GameLoop {
             double dt = (lastTick == 0L) ? 0.05 : (now - lastTick) / 1_000_000_000.0;
             lastTick = now;
 
+            // advance players
             for (PlayerState ps : players.values()) {
                 ps.update(dt);
+            }
+
+            // handle firing requests (spawn projectiles)
+            for (PlayerState ps : players.values()) {
+                if (ps.fireRequested) {
+                    ps.fireRequested = false;
+                    String facing = ps.fireFacing != null ? ps.fireFacing : "";
+                    double vx = 0.0, vy = 0.0;
+                    double speed = 400.0; // projectile speed
+                    switch (facing.toUpperCase()) {
+                        case "UP": vy = -speed; break;
+                        case "DOWN": vy = speed; break;
+                        case "LEFT": vx = -speed; break;
+                        case "RIGHT": vx = speed; break;
+                        default:
+                            // derive from player intent if no payload
+                            if (ps.up) vy = -speed;
+                            else if (ps.down) vy = speed;
+                            else if (ps.left) vx = -speed;
+                            else if (ps.right) vx = speed;
+                            break;
+                    }
+
+                    int pid = nextProjectileId++;
+                    ProjectileState proj = new ProjectileState(pid, ps.x, ps.y, vx, vy, ps.id);
+                    projectiles.put(pid, proj);
+                    logger.debug("Spawned projectile id={} owner={} vx={} vy={}", pid, ps.id, vx, vy);
+                }
+            }
+
+            // advance projectiles
+            for (ProjectileState p : projectiles.values()) {
+                p.update(dt);
+            }
+
+            // remove dead/out-of-bounds projectiles
+            for (Integer id : projectiles.keySet().toArray(new Integer[0])) {
+                ProjectileState p = projectiles.get(id);
+                if (p == null) continue;
+                if (p.life <= 0 || p.x < -100 || p.x > 2000 || p.y < -100 || p.y > 2000) {
+                    projectiles.remove(id);
+                }
             }
 
             broadcastState();
@@ -124,6 +176,8 @@ public class GameLoop {
 
         private boolean up = false, down = false, left = false, right = false;
         public long lastTs = 0L;
+        public boolean fireRequested = false;
+        public String fireFacing = "";
 
         public PlayerState(int id) {
             this.id = id;
@@ -156,6 +210,29 @@ public class GameLoop {
 
             x += dx * speed * dt;
             y += dy * speed * dt;
+        }
+    }
+
+    public static class ProjectileState {
+        public final int id;
+        public final int owner;
+        public double x, y;
+        public double vx, vy;
+        public double life = 5.0; // seconds
+
+        public ProjectileState(int id, double x, double y, double vx, double vy, int owner) {
+            this.id = id;
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.owner = owner;
+        }
+
+        public void update(double dt) {
+            x += vx * dt;
+            y += vy * dt;
+            life -= dt;
         }
     }
 

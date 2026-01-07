@@ -16,8 +16,9 @@ export function connect(url = "ws://localhost:3000") {
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
-        if (data && data.type === "state" && Array.isArray(data.players)) {
-          stateHandlers.forEach((h) => h(data.players));
+        if (data && data.type === "state") {
+          // pass full state (players + projectiles) to handlers
+          stateHandlers.forEach((h) => h(data));
           return;
         }
         // other message types can be handled here if needed
@@ -55,8 +56,8 @@ export function sendRaw(message: string) {
   }
 }
 
-export function sendInput(playerId: number, action: string) {
-  const msg = JSON.stringify({ type: "input", playerId, action });
+export function sendInput(playerId: number, action: string, payload?: any) {
+  const msg = JSON.stringify({ type: "input", playerId, action, payload });
   sendRaw(msg);
 }
 
@@ -69,9 +70,9 @@ export function ping() {
   sendRaw(JSON.stringify({ type: "ping" }));
 }
 
-let stateHandlers: Array<(players: any[]) => void> = [];
+let stateHandlers: Array<(state: any) => void> = [];
 
-export function onState(cb: (players: any[]) => void) {
+export function onState(cb: (state: any) => void) {
   stateHandlers.push(cb);
   return () => {
     stateHandlers = stateHandlers.filter((h) => h !== cb);
