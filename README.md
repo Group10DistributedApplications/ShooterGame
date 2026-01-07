@@ -11,11 +11,11 @@ We plan to implement the project using JavaScript. All members of the group have
 # Contributors
 
 Project contributors:
-* Amalie (s235119@student.dtu.dk)
-* Victor (s235077@student.dtu.dk)
-* Karl (s235066@student.dtu.dk)
-* Balder (s235094@student.dtu.dk)
-* Viktor (s214707@student.dtu.dk)
+* Amalie (s235119@student.dtu.dk) - S235119
+* Victor (s235077@student.dtu.dk) - AlmostMid
+* Karl (s235066@student.dtu.dk) - karlpedro
+* Balder (s235094@student.dtu.dk) - TheRealChair
+* Viktor (s214707@student.dtu.dk) - ViktorKjer
 
 > Indicate the name of main people contributing to each part of the project below (keep the bullet points!). Note that the report as a whole is under the joint responsibility of the entire
 group. 
