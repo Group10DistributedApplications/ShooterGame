@@ -12,12 +12,20 @@ import org.java_websocket.WebSocket;
 public class ClientRegistry {
 
     private final Map<WebSocket, Integer> clients = new ConcurrentHashMap<>();
+    private static final int UNREGISTERED = -1;
 
     /**
      * Register a client connection with a player ID.
      */
     public void register(WebSocket socket, int playerId) {
         clients.put(socket, playerId);
+    }
+
+    /**
+     * Register a connection without assigning a player id yet.
+     */
+    public void registerConnection(WebSocket socket) {
+        clients.put(socket, UNREGISTERED);
     }
 
     /**
@@ -31,14 +39,17 @@ public class ClientRegistry {
      * Get player ID for a socket connection.
      */
     public Integer getPlayerId(WebSocket socket) {
-        return clients.get(socket);
+        Integer v = clients.get(socket);
+        if (v == null || v == UNREGISTERED) return null;
+        return v;
     }
 
     /**
      * Check if a socket is registered.
      */
     public boolean isRegistered(WebSocket socket) {
-        return clients.containsKey(socket);
+        Integer v = clients.get(socket);
+        return v != null && v != UNREGISTERED;
     }
 
     /**
