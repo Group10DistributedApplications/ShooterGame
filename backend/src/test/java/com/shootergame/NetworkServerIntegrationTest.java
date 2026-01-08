@@ -94,17 +94,17 @@ public class NetworkServerIntegrationTest {
         client.connectBlocking();
         client.send(gson.toJson(java.util.Map.of("type", "input", "playerId", 7, "action", "UP")));
 
-        // wait up to 1s for event tuple
+        // wait up to 1s for input tuple
         Object[] ev = null;
         long deadline = System.currentTimeMillis() + 1000;
         while (System.currentTimeMillis() < deadline) {
-            ev = space.getp(new ActualField("event"), new FormalField(Integer.class), new FormalField(String.class), new FormalField(Long.class));
+            ev = space.getp(new ActualField("input"), new FormalField(Integer.class), new FormalField(String.class), new FormalField(String.class));
             if (ev != null) break;
             Thread.sleep(20);
         }
 
-        assertNotNull(ev, "event tuple must appear");
-        assertEquals(7, ev[1]);
+        assertNotNull(ev, "input tuple must appear");
+        assertEquals(7, ((Number) ev[1]).intValue());
         assertEquals("UP", ev[2]);
 
         client.close();
