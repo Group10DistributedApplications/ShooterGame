@@ -1,0 +1,12 @@
+{
+  "name": "shootergame",
+  "private": true,
+  "scripts": {
+    "start": "concurrently \"npm:backend\" \"npm:frontend\" -n backend,frontend -k",
+    "backend": "cd backend && mvn -DskipTests=true exec:java",
+    "frontend": "cd frontend && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
