@@ -3,8 +3,12 @@
   "private": true,
   "scripts": {
     "start": "concurrently \"npm:backend\" \"npm:frontend\" -n backend,frontend -k",
-    "backend": "cd backend && mvn -DskipTests=true exec:java",
-    "frontend": "cd frontend && npm run dev"
+    "backend": "cd backend && mvn exec:java",
+    "frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && mvn exec:java",
+    "setup:frontend": "npm --prefix frontend install",
+    "setup:backend": "cd backend && mvn -DskipTests=true install",
+    "setup": "node scripts/setup.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.0"
