@@ -1,0 +1,88 @@
+package com.shootergame.game.entity;
+
+/**
+ * Represents the mutable state of a player in the game.
+ * Holds position, movement flags, and firing intent.
+ */
+public class PlayerState {
+    public final int id;
+    public double x = 400.0;
+    public double y = 300.0;
+
+    private boolean up = false;
+    private boolean down = false;
+    private boolean left = false;
+    private boolean right = false;
+
+    public long lastTs = 0L;
+    public boolean fireRequested = false;
+    public String fireFacing = "";
+
+    public PlayerState(int id) {
+        this.id = id;
+    }
+
+    public void applyInput(String action) {
+        switch (action) {
+            case "UP":
+                up = true;
+                break;
+            case "DOWN":
+                down = true;
+                break;
+            case "LEFT":
+                left = true;
+                break;
+            case "RIGHT":
+                right = true;
+                break;
+            case "STOP_UP":
+                up = false;
+                break;
+            case "STOP_DOWN":
+                down = false;
+                break;
+            case "STOP_LEFT":
+                left = false;
+                break;
+            case "STOP_RIGHT":
+                right = false;
+                break;
+            default:
+                break;
+        }
+    }
+
+    public void update(double dt) {
+        double speed = 200.0;
+        int dx = 0, dy = 0;
+
+        if (up)
+            dy -= 1;
+        if (down)
+            dy += 1;
+        if (left)
+            dx -= 1;
+        if (right)
+            dx += 1;
+
+        x += dx * speed * dt;
+        y += dy * speed * dt;
+    }
+
+    public boolean isUp() {
+        return up;
+    }
+
+    public boolean isDown() {
+        return down;
+    }
+
+    public boolean isLeft() {
+        return left;
+    }
+
+    public boolean isRight() {
+        return right;
+    }
+}

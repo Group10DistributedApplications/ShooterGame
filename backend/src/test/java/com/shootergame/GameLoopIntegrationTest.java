@@ -15,6 +15,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.shootergame.game.GameLoop;
+import com.shootergame.network.NetworkServer;
 import com.google.gson.Gson;
 
 public class GameLoopIntegrationTest {
