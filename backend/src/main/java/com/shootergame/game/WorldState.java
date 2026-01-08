@@ -57,10 +57,7 @@ public class WorldState {
      */
     public void syncRegisteredPlayers() {
         try {
-            List<Object[]> regs = space.queryAll(
-                new ActualField(TupleSpaces.PLAYER),
-                new FormalField(Integer.class)
-            );
+            List<Object[]> regs = TupleSpaces.queryAllPlayers(space);
             if (regs != null) {
                 for (Object[] r : regs) {
                     if (r.length >= 2 && r[1] instanceof Number) {
@@ -76,23 +73,14 @@ public class WorldState {
         }
     }
 
-    /**
-     * Get all players.
-     */
     public Map<Integer, PlayerState> getPlayers() {
         return players;
     }
 
-    /**
-     * Get all projectiles.
-     */
     public Map<Integer, ProjectileState> getProjectiles() {
         return projectiles;
     }
 
-    /**
-     * Spawn a projectile from a player.
-     */
     public ProjectileState spawnProjectile(PlayerState owner, double vx, double vy) {
         int projId = nextProjectileId++;
         ProjectileState proj = new ProjectileState(projId, owner.x, owner.y, vx, vy, owner.id);
@@ -101,9 +89,6 @@ public class WorldState {
         return proj;
     }
 
-    /**
-     * Remove a projectile by ID.
-     */
     public void removeProjectile(int projId) {
         projectiles.remove(projId);
     }

@@ -29,25 +29,16 @@ public class TickScheduler {
         });
     }
 
-    /**
-     * Start the fixed-rate tick scheduler.
-     */
     public void start() {
         logger.info("Starting tick scheduler at {} ms interval", tickIntervalMs);
         executor.scheduleAtFixedRate(tickTask, 0, tickIntervalMs, TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * Stop the scheduler immediately.
-     */
     public void stop() {
         logger.info("Stopping tick scheduler");
         executor.shutdownNow();
     }
 
-    /**
-     * Check if scheduler is running.
-     */
     public boolean isRunning() {
         return !executor.isShutdown();
     }

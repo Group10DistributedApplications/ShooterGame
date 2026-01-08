@@ -62,9 +62,6 @@ public class NetworkServer extends WebSocketServer {
         logger.info("WebSocket server started on {}", getAddress());
     }
 
-    /**
-     * Broadcast a message to all connected clients.
-     */
     public void broadcast(String message) {
         for (WebSocket socket : clientRegistry.getAllSockets()) {
             try {
@@ -76,9 +73,6 @@ public class NetworkServer extends WebSocketServer {
         }
     }
 
-    /**
-     * Get the client registry for testing/diagnostics.
-     */
     public ClientRegistry getClientRegistry() {
         return clientRegistry;
     }

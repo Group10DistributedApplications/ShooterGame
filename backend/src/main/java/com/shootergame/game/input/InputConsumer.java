@@ -29,10 +29,6 @@ public class InputConsumer {
         this.worldState = worldState;
     }
 
-    /**
-     * Start consuming input tuples (blocking operation).
-     * Creates and starts the consumer thread.
-     */
     public void start() {
         if (consumerThread != null && consumerThread.isAlive()) {
             logger.warn("InputConsumer already running");
@@ -44,12 +40,7 @@ public class InputConsumer {
             while (running) {
                 try {
                     // Consume input tuples from tuple space (blocks until available)
-                    Object[] ev = space.get(
-                        new ActualField(TupleSpaces.INPUT),
-                        new FormalField(Integer.class),
-                        new FormalField(String.class),
-                        new FormalField(String.class)
-                    );
+                    Object[] ev = TupleSpaces.getInputBlocking(space);
 
                     int playerId = ((Number) ev[1]).intValue();
                     String action = (String) ev[2];

@@ -68,7 +68,7 @@ public class MessageHandler {
 
         try {
             clientRegistry.register(conn, playerId);
-            space.put(TupleSpaces.PLAYER, playerId);
+            TupleSpaces.putPlayer(space, playerId);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             sendError(conn, "Operation interrupted");
@@ -93,7 +93,7 @@ public class MessageHandler {
 
         try {
             // Write to tuple space
-            space.put(TupleSpaces.INPUT, playerId, action, payload);
+            TupleSpaces.putInput(space, playerId, action, payload);
             logger.debug("Stored input: player={} action={} payload={}", playerId, action, payload);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

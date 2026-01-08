@@ -35,17 +35,11 @@ public class GameLoop {
         this.tickScheduler = new TickScheduler(this::tick, 50);
     }
 
-    /**
-     * Start the game loop.
-     */
     public void start() {
         tickScheduler.start();
         logger.info("GameLoop started");
     }
 
-    /**
-     * Stop the game loop.
-     */
     public void stop() {
         running = false;
         tickScheduler.stop();
@@ -97,9 +91,6 @@ public class GameLoop {
         }
     }
 
-    /**
-     * Handle a fire request from a player.
-     */
     private void handleFire(PlayerState ps) {
         String facing = ps.fireFacing != null ? ps.fireFacing : "";
         double vx = 0.0, vy = 0.0;
@@ -134,9 +125,6 @@ public class GameLoop {
         worldState.spawnProjectile(ps, vx, vy);
     }
 
-    /**
-     * Broadcast current game state to all connected clients.
-     */
     private void broadcastState() {
         try {
             Map<String, Object> state = Map.of(
@@ -152,9 +140,6 @@ public class GameLoop {
         }
     }
 
-    /**
-     * Get the world state.
-     */
     public WorldState getWorldState() {
         return worldState;
     }
