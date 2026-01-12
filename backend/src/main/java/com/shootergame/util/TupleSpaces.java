@@ -52,6 +52,33 @@ public class TupleSpaces {
         return s.queryAll(new ActualField(PLAYER), new FormalField(Integer.class));
     }
 
+    /**
+     * Remove a player tuple for a game if present.
+     */
+    public static void removePlayer(Space rootSpace, String gameId, int playerId) throws InterruptedException {
+        Space s = getOrCreateGameSpace(gameId);
+        try {
+            // check if present
+            List<Object[]> found = s.queryAll(new ActualField(PLAYER), new FormalField(Integer.class));
+            if (found != null) {
+                for (Object[] r : found) {
+                    if (r.length >= 2 && r[1] instanceof Number) {
+                        int pid = ((Number) r[1]).intValue();
+                        if (pid == playerId) {
+                            // remove the matching tuple (use ActualField to match exact value)
+                            s.get(new ActualField(PLAYER), new ActualField(playerId));
+                            return;
+                        }
+                    }
+                }
+            }
+        } catch (InterruptedException ie) {
+            throw ie;
+        } catch (Exception ex) {
+            // ignore if not present or other non-fatal errors
+        }
+    }
+
     public static Object[] getInputBlockingAny(Space rootSpace) throws InterruptedException {
         // Poll all game spaces using non-blocking queries. If none found, sleep briefly and retry.
         while (true) {

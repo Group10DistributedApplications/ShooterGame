@@ -60,14 +60,19 @@ public class WorldState {
     public void syncRegisteredPlayers() {
         try {
             List<Object[]> regs = TupleSpaces.queryAllPlayers(space, gameId);
+            java.util.Set<Integer> registered = new java.util.HashSet<>();
             if (regs != null) {
                 for (Object[] r : regs) {
                     if (r.length >= 2 && r[1] instanceof Number) {
                         int pid = ((Number) r[1]).intValue();
+                        registered.add(pid);
                         players.computeIfAbsent(pid, PlayerState::new);
                     }
                 }
             }
+
+            // Remove players that are no longer registered
+            players.keySet().removeIf(id -> !registered.contains(id));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (Exception e) {
