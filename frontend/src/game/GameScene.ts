@@ -28,7 +28,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.player = new Player(this, 400, 300, 0x00ff00);
+    this.player = new Player(this, 400, 300);
     // Do not auto-connect here; wait for the user to connect from the Lobby.
     // Once a connection is established, register this client with the server.
     this.connCheckId = window.setInterval(() => {
@@ -67,19 +67,31 @@ export default class GameScene extends Phaser.Scene {
   private handleState(state: any) {
     const players: any[] = state.players || [];
     const seen = new Set<number>();
+    let playerIndex = 0;
     for (const p of players) {
       const id = p.id as number;
       seen.add(id);
+
+      const color = PLAYER_COLORS[playerIndex % PLAYER_COLORS.length];
+      playerIndex++;
+
       if (id === this.localPlayerId) {
         // apply authoritative server state for local player
         this.player.setTarget(p.x || 0, p.y || 0);
+        if (this.player.sprite && (this.player.sprite as any).setTint) {
+          (this.player.sprite as any).setTint(color);
+        }
+        this.player.setColor(color);
+        this.player.setColor(color);
         continue;
       }
 
       let rp = this.remotePlayers.get(id);
       if (!rp) {
-        rp = new Player(this, p.x || 0, p.y || 0, 0x0000ff, 30);
+        rp = new Player(this, p.x || 0, p.y || 0, color, 30);
         this.remotePlayers.set(id, rp);
+      } else {
+        rp.setColor(color);
       }
       rp.setTarget(p.x || 0, p.y || 0);
     }

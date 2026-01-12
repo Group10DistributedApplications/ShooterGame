@@ -13,6 +13,24 @@ export default class Player {
     this.targetY = y;
   }
 
+  setColor(color: number) {
+    if (!this.sprite) return;
+    if ((this.sprite as any).setTint) {
+      (this.sprite as any).setTint(color);
+      return;
+    }
+    if ((this.sprite as any).setFillStyle) {
+      (this.sprite as any).setFillStyle(color);
+      return;
+    }
+    try {
+      (this.sprite as any).tint = color;
+    } catch (e) {
+      // ignore
+    }
+  }
+
+
   setPosition(x: number, y: number) {
     this.sprite.x = x;
     this.sprite.y = y;
