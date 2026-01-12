@@ -1,6 +1,7 @@
 package com.shootergame.game;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.jspace.Space;
 import org.slf4j.Logger;
@@ -21,7 +22,7 @@ public class GameLoop {
 
     private final Space space;
     private final NetworkServer server;
-    private final WorldState worldState;
+    private final Map<String, WorldState> worlds;
     private final TickScheduler tickScheduler;
     private final JsonSerializer serializer;
     private volatile boolean running = true;
@@ -30,14 +31,15 @@ public class GameLoop {
     public GameLoop(Space space, NetworkServer server) {
         this.space = space;
         this.server = server;
-        this.worldState = new WorldState(space);
+        this.worlds = new ConcurrentHashMap<>();
+        // create default world
+        this.worlds.put("default", new WorldState(space, "default"));
         this.serializer = new JsonSerializer();
         this.tickScheduler = new TickScheduler(this::tick, 50);
     }
 
     public void start() {
         tickScheduler.start();
-        logger.info("GameLoop started");
     }
 
     public void stop() {
@@ -55,36 +57,42 @@ public class GameLoop {
             double dt = (lastTick == 0L) ? 0.05 : (now - lastTick) / 1_000_000_000.0;
             lastTick = now;
 
-            // Sync registered players
-            worldState.syncRegisteredPlayers();
+            // Run simulation for each world (game)
+            for (Map.Entry<String, WorldState> e : worlds.entrySet()) {
+                String gid = e.getKey();
+                WorldState world = e.getValue();
 
-            // Update all players
-            for (PlayerState ps : worldState.getPlayers().values()) {
-                ps.update(dt);
-            }
+                // Sync registered players for this world
+                world.syncRegisteredPlayers();
 
-            // Handle firing requests
-            for (PlayerState ps : worldState.getPlayers().values()) {
-                if (ps.fireRequested) {
-                    handleFire(ps);
-                    ps.fireRequested = false;
+                // Update all players
+                for (PlayerState ps : world.getPlayers().values()) {
+                    ps.update(dt);
                 }
+
+                // Handle firing requests
+                for (PlayerState ps : world.getPlayers().values()) {
+                    if (ps.fireRequested) {
+                        handleFireForWorld(world, ps);
+                        ps.fireRequested = false;
+                    }
+                }
+
+                // Update projectiles
+                for (ProjectileState p : world.getProjectiles().values()) {
+                    p.update(dt);
+                }
+
+                // Remove dead/out-of-bounds projectiles
+                world.getProjectiles().keySet()
+                    .removeIf(id -> {
+                        ProjectileState p = world.getProjectiles().get(id);
+                        return p != null && (!p.isAlive() || p.isOutOfBounds());
+                    });
+
+                // Broadcast state to clients in this game only
+                broadcastStateForGame(gid, world);
             }
-
-            // Update all projectiles
-            for (ProjectileState p : worldState.getProjectiles().values()) {
-                p.update(dt);
-            }
-
-            // Remove dead/out-of-bounds projectiles
-            worldState.getProjectiles().keySet()
-                .removeIf(id -> {
-                    ProjectileState p = worldState.getProjectiles().get(id);
-                    return p != null && (!p.isAlive() || p.isOutOfBounds());
-                });
-
-            // Broadcast state to all clients
-            broadcastState();
 
         } catch (Exception e) {
             logger.error("Error in tick", e);
@@ -122,25 +130,69 @@ public class GameLoop {
                 break;
         }
 
-        worldState.spawnProjectile(ps, vx, vy);
+        // This method is no longer used; kept for compatibility.
+        // Find the world that contains this player and spawn projectile there (best-effort)
+        for (WorldState ws : worlds.values()) {
+            if (ws.getPlayers().containsKey(ps.id)) {
+                ws.spawnProjectile(ps, vx, vy);
+                return;
+            }
+        }
+    }
+    private void handleFireForWorld(WorldState world, PlayerState ps) {
+        String facing = ps.fireFacing != null ? ps.fireFacing : "";
+        double vx = 0.0, vy = 0.0;
+        double speed = 400.0; // projectile speed
+
+        switch (facing.toUpperCase()) {
+            case "UP":
+                vy = -speed;
+                break;
+            case "DOWN":
+                vy = speed;
+                break;
+            case "LEFT":
+                vx = -speed;
+                break;
+            case "RIGHT":
+                vx = speed;
+                break;
+            default:
+                if (ps.isUp())
+                    vy = -speed;
+                else if (ps.isDown())
+                    vy = speed;
+                else if (ps.isLeft())
+                    vx = -speed;
+                else if (ps.isRight())
+                    vx = speed;
+                break;
+        }
+
+        world.spawnProjectile(ps, vx, vy);
     }
 
-    private void broadcastState() {
+    private void broadcastStateForGame(String gameId, WorldState world) {
         try {
             Map<String, Object> state = Map.of(
                 "type", "state",
-                "players", worldState.getPlayers().values(),
-                "projectiles", worldState.getProjectiles().values()
+                "players", world.getPlayers().values(),
+                "projectiles", world.getProjectiles().values()
             );
             String json = serializer.toJson(state);
-            logger.debug("Broadcasting state");
-            server.broadcast(json);
+            logger.debug("Broadcasting state for game={}", gameId);
+            server.broadcastToGame(gameId, json);
         } catch (Exception e) {
-            logger.error("Error broadcasting state", e);
+            logger.error("Error broadcasting state for game=" + gameId, e);
         }
     }
 
     public WorldState getWorldState() {
-        return worldState;
+        return worlds.get("default");
+    }
+
+    public void applyInput(String gameId, com.shootergame.game.input.PlayerInput input) {
+        WorldState ws = worlds.computeIfAbsent(gameId, gid -> new WorldState(space, gid));
+        ws.applyInput(input);
     }
 }

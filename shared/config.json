@@ -1,0 +1,5 @@
+{
+  "MAX_PLAYERS": 4,
+  "MAX_BULLETS": 50,
+  "LOBBY_TIMEOUT": 30000
+}

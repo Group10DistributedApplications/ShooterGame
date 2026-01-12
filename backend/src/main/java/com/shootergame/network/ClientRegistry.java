@@ -1,24 +1,42 @@
 package com.shootergame.network;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.java_websocket.WebSocket;
+import com.shootergame.config.SharedConfig;
 
 /**
  * Manages the registry of connected clients.
- * Tracks the mapping between WebSocket connections and player IDs.
+ * Tracks the mapping between WebSocket connections and (gameId, playerId).
  */
 public class ClientRegistry {
 
-    private final Map<WebSocket, Integer> clients = new ConcurrentHashMap<>();
-    private static final int UNREGISTERED = -1;
+    private static class ClientInfo {
+        final String gameId;
+        final int playerId;
+
+        ClientInfo(String gameId, int playerId) {
+            this.gameId = gameId;
+            this.playerId = playerId;
+        }
+    }
+
+    private final Map<WebSocket, ClientInfo> clients = new ConcurrentHashMap<>();
+    private static final ClientInfo UNREGISTERED = new ClientInfo("", -1);
 
     /**
-     * Register a client connection with a player ID.
+     * Register a client connection with a player ID and gameId.
      */
-    public void register(WebSocket socket, int playerId) {
-        clients.put(socket, playerId);
+    public void register(WebSocket socket, String gameId, int playerId) {
+        int max = SharedConfig.getInt("MAX_PLAYERS", 6);
+        int current = getSocketsForGame(gameId).size();
+        if (current >= max) {
+            throw new IllegalStateException("Game full");
+        }
+        clients.put(socket, new ClientInfo(gameId, playerId));
     }
 
     /**
@@ -39,17 +57,26 @@ public class ClientRegistry {
      * Get player ID for a socket connection.
      */
     public Integer getPlayerId(WebSocket socket) {
-        Integer v = clients.get(socket);
+        ClientInfo v = clients.get(socket);
+        if (v == null || v == UNREGISTERED || v.playerId == -1) return null;
+        return v.playerId;
+    }
+
+    /**
+     * Get gameId for a socket connection.
+     */
+    public String getGameId(WebSocket socket) {
+        ClientInfo v = clients.get(socket);
         if (v == null || v == UNREGISTERED) return null;
-        return v;
+        return v.gameId;
     }
 
     /**
      * Check if a socket is registered.
      */
     public boolean isRegistered(WebSocket socket) {
-        Integer v = clients.get(socket);
-        return v != null && v != UNREGISTERED;
+        ClientInfo v = clients.get(socket);
+        return v != null && v != UNREGISTERED && v.playerId != -1;
     }
 
     /**
@@ -57,6 +84,16 @@ public class ClientRegistry {
      */
     public Iterable<WebSocket> getAllSockets() {
         return clients.keySet();
+    }
+
+    /**
+     * Get sockets for a specific gameId.
+     */
+    public Set<WebSocket> getSocketsForGame(String gameId) {
+        return clients.entrySet().stream()
+            .filter(e -> e.getValue() != null && e.getValue() != UNREGISTERED && gameId.equals(e.getValue().gameId))
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toSet());
     }
 
     /**

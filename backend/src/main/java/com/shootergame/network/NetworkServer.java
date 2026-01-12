@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootergame.util.JsonSerializer;
+import com.shootergame.util.TupleSpaces;
 
 /**
  * WebSocket server that manages client connections and lifecycle.
@@ -43,6 +44,19 @@ public class NetworkServer extends WebSocketServer {
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
         logger.info("Client disconnected: {} (code={}, reason={})", 
             conn.getRemoteSocketAddress(), code, reason);
+        // Attempt to remove player tuple for this connection so worlds will drop the player
+        try {
+            Integer pid = clientRegistry.getPlayerId(conn);
+            String gid = clientRegistry.getGameId(conn);
+            if (pid != null) {
+                TupleSpaces.removePlayer(space, gid != null ? gid : "default", pid);
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            logger.debug("Failed to remove player tuple on disconnect", ex);
+        }
+
         clientRegistry.unregister(conn);
     }
 
@@ -65,6 +79,17 @@ public class NetworkServer extends WebSocketServer {
 
     public void broadcast(String message) {
         for (WebSocket socket : clientRegistry.getAllSockets()) {
+            try {
+                socket.send(message);
+            } catch (Exception e) {
+                logger.error("Error broadcasting to {}: {}", 
+                    socket.getRemoteSocketAddress(), e.getMessage());
+            }
+        }
+    }
+
+    public void broadcastToGame(String gameId, String message) {
+        for (WebSocket socket : clientRegistry.getSocketsForGame(gameId)) {
             try {
                 socket.send(message);
             } catch (Exception e) {

@@ -25,6 +25,8 @@ export default class GameScene extends Phaser.Scene {
   private statusText?: Phaser.GameObjects.Text;
   private remoteProjectiles: Map<number, Projectile> = new Map();
 
+  private unsubscribeState: (() => void) | null = null;
+
   constructor() {
     super("game");
   }
@@ -39,46 +41,45 @@ export default class GameScene extends Phaser.Scene {
   create() {
     // --- MAP SETUP ---
     const map = this.make.tilemap({ key: MAP_KEY });
-    // The names below must match the 'name' field in Tiled's tileset properties (not the filename)
     const tileset1 = map.addTilesetImage("Interior-Hospital floor", TILESET1_KEY);
     const tileset2 = map.addTilesetImage("Interior-Hospital Walls", TILESET2_KEY);
     if (!tileset1 || !tileset2) {
-      throw new Error("Tileset(s) not found. Check that the tileset names in Tiled and the asset keys in Phaser match exactly.");
+      throw new Error("Tileset(s) not found. Check names in Tiled vs Phaser keys.");
     }
-    // Create layers (order: background first)
     const groundLayer = map.createLayer("Ground", [tileset1, tileset2], 0, 0);
     this.wallsLayer = map.createLayer("Walls", [tileset1, tileset2], 0, 0)!;
-    
-    if (!this.wallsLayer) {
-      throw new Error("Failed to create walls layer");
-    }
-    
-    // Set up collision on the walls layer
     this.wallsLayer.setCollisionByExclusion([-1, 0]);
 
     // --- PLAYER SETUP ---
-    this.player = new Player(this, 320, 240, 0x00ff00);
-    // Drive the local player purely by client input (no server correction)
+    this.player = new Player(this, 400, 300, 0x00ff00);
     this.player.setManualControl(true);
     this.physics.add.collider(this.player.sprite, this.wallsLayer);
-    
-    // Set world bounds to match map size (40x30 tiles at 16px = 640x480)
-    this.physics.world.setBounds(0, 0, 640, 480);
+
+    // world & camera bounds match the map size
+    const mapW = map.widthInPixels;
+    const mapH = map.heightInPixels;
+    this.physics.world.setBounds(0, 0, mapW, mapH);
+    this.cameras.main.setBounds(0, 0, mapW, mapH);
+    this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
 
     // --- NETWORK SETUP ---
     net.connect();
     net.register(this.localPlayerId);
     this.inputManager = new InputManager(this, this.localPlayerId, () => this.player.facing || "up");
-    net.onState((state) => this.handleState(state));
+    this.unsubscribeState = net.onState((state) => this.handleState(state));
 
-    // --- HUD SETUP ---
-    this.debugText = this.add.text(8, 8, "", { font: "14px monospace", color: "#ffffff" })
-      .setDepth(1000);
+    this.debugText = this.add.text(8, 8, "", { font: "14px monospace", color: "#ffffff" }).setDepth(1000);
     const cx = this.cameras.main.centerX;
     this.statusText = this.add.text(cx, 20, "Disconnected", { font: "16px monospace", color: "#ff0000" })
       .setOrigin(0.5, 0)
       .setDepth(2000);
     if (this.statusText) this.statusText.setVisible(!net.isConnected());
+    this.events.on("shutdown", () => {
+      if (this.unsubscribeState) {
+        try { this.unsubscribeState(); } catch (_) { /* ignore */ }
+        this.unsubscribeState = null;
+      }
+    });
   }
 
   private handleState(state: any) {

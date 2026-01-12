@@ -4,6 +4,9 @@ export const SERVER_URL = "ws://localhost:3000";
 
 let ws: WebSocket | null = null;
 let sendQueue: string[] = [];
+let connectionHandlers: Array<(connected: boolean) => void> = [];
+let registeredHandlers: Array<(playerId: number) => void> = [];
+let errorHandlers: Array<(message: string) => void> = [];
 
 export function connect(url = SERVER_URL) {
   if (ws) return;
@@ -11,6 +14,7 @@ export function connect(url = SERVER_URL) {
     ws = new WebSocket(url);
     ws.onopen = () => {
       console.log("network: connected to", url);
+      connectionHandlers.forEach((h) => h(true));
       // flush queued messages
       while (sendQueue.length > 0) {
         const m = sendQueue.shift()!;
@@ -20,18 +24,30 @@ export function connect(url = SERVER_URL) {
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
-        if (data && data.type === "state") {
-          // pass full state (players + projectiles) to handlers
-          stateHandlers.forEach((h) => h(data));
-          return;
+        if (!data || !data.type) return;
+
+        switch (data.type) {
+          case "state":
+            stateHandlers.forEach((h) => h(data));
+            break;
+          case "registered":
+            registeredHandlers.forEach((h) => h(data.playerId));
+            break;
+          case "error":
+            errorHandlers.forEach((h) => h(data.message || ""));
+            break;
+          default:
+            // unknown message types are ignored by default
+            break;
         }
-        // other message types can be handled here if needed
+        return;
       } catch (e) {
         console.log("network: message (raw)", ev.data);
       }
     };
     ws.onclose = () => {
       console.log("network: closed");
+      connectionHandlers.forEach((h) => h(false));
       ws = null;
     };
     ws.onerror = (e) => console.error("network: error", e);
@@ -41,15 +57,25 @@ export function connect(url = SERVER_URL) {
   }
 }
 
+let currentGameId: string | undefined = undefined;
+
+export function setGameId(id: string | undefined) {
+  currentGameId = id;
+}
+
+export function getGameId(): string | undefined {
+  return currentGameId;
+}
+
 export function disconnect() {
   if (!ws) return;
   ws.close();
+  connectionHandlers.forEach((h) => h(false));
   ws = null;
 }
 
 export function sendRaw(message: string) {
   if (!ws) {
-    connect(SERVER_URL);
     sendQueue.push(message);
     return;
   }
@@ -65,8 +91,10 @@ export function sendInput(playerId: number, action: string, payload?: any) {
   sendRaw(msg);
 }
 
-export function register(playerId: number) {
-  const msg = JSON.stringify({ type: "register", playerId });
+export function register(playerId: number, gameId?: string) {
+  const payload: any = { type: "register", playerId };
+  if (gameId) payload.gameId = gameId;
+  const msg = JSON.stringify(payload);
   sendRaw(msg);
 }
 
@@ -80,6 +108,23 @@ export function onState(cb: (state: any) => void) {
   stateHandlers.push(cb);
   return () => {
     stateHandlers = stateHandlers.filter((h) => h !== cb);
+  };
+}
+
+export function onRegistered(cb: (playerId: number) => void) {
+  registeredHandlers.push(cb);
+  return () => { registeredHandlers = registeredHandlers.filter(h => h !== cb); };
+}
+
+export function onError(cb: (message: string) => void) {
+  errorHandlers.push(cb);
+  return () => { errorHandlers = errorHandlers.filter(h => h !== cb); };
+}
+
+export function onConnectionChange(cb: (connected: boolean) => void) {
+  connectionHandlers.push(cb);
+  return () => {
+    connectionHandlers = connectionHandlers.filter((h) => h !== cb);
   };
 }
 
