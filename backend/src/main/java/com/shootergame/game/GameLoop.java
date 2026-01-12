@@ -37,7 +37,6 @@ public class GameLoop {
 
     public void start() {
         tickScheduler.start();
-        logger.info("GameLoop started");
     }
 
     public void stop() {

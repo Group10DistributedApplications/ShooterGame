@@ -62,7 +62,6 @@ public class InputConsumer {
         }, "InputConsumer-Thread");
         consumerThread.setDaemon(true);
         consumerThread.start();
-        logger.info("InputConsumer started");
     }
 
     /**

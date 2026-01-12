@@ -28,7 +28,8 @@ public class Main {
         // Start network server
         NetworkServer server = new NetworkServer(new InetSocketAddress("0.0.0.0", 3000), space);
         server.start();
-        logger.info("Server listening on :3000");
+        // Minimal, user-visible startup message
+        System.out.println("Backend listening on :3000");
 
         // Start game loop and world state
         GameLoop gameLoop = new GameLoop(space, server);
