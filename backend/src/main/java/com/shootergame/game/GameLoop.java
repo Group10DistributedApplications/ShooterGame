@@ -58,14 +58,16 @@ public class GameLoop {
             // Sync registered players
             worldState.syncRegisteredPlayers();
 
-            // Update all players
+            // Update all alive players
             for (PlayerState ps : worldState.getPlayers().values()) {
-                ps.update(dt);
+                if (ps.isAlive()) {
+                    ps.update(dt);
+                }
             }
 
-            // Handle firing requests
+            // Handle firing requests (only for alive players)
             for (PlayerState ps : worldState.getPlayers().values()) {
-                if (ps.fireRequested) {
+                if (ps.isAlive() && ps.fireRequested) {
                     handleFire(ps);
                     ps.fireRequested = false;
                 }
@@ -75,6 +77,9 @@ public class GameLoop {
             for (ProjectileState p : worldState.getProjectiles().values()) {
                 p.update(dt);
             }
+
+            // Check collisions between projectiles and players
+            checkCollisions();
 
             // Remove dead/out-of-bounds projectiles
             worldState.getProjectiles().keySet()
@@ -127,9 +132,14 @@ public class GameLoop {
 
     private void broadcastState() {
         try {
+            // Only send alive players to clients
+            var alivePlayers = worldState.getPlayers().values().stream()
+                .filter(PlayerState::isAlive)
+                .toList();
+            
             Map<String, Object> state = Map.of(
                 "type", "state",
-                "players", worldState.getPlayers().values(),
+                "players", alivePlayers,
                 "projectiles", worldState.getProjectiles().values()
             );
             String json = serializer.toJson(state);
@@ -137,6 +147,36 @@ public class GameLoop {
             server.broadcast(json);
         } catch (Exception e) {
             logger.error("Error broadcasting state", e);
+        }
+    }
+
+    /**
+     * Check collisions between projectiles and players.
+     * If a projectile hits a player (not the owner), the player loses a life.
+     */
+    private void checkCollisions() {
+        for (ProjectileState proj : worldState.getProjectiles().values()) {
+            for (PlayerState player : worldState.getPlayers().values()) {
+                // Don't collide with owner or if player is invulnerable
+                if (proj.owner == player.id || player.isInvulnerable()) {
+                    continue;
+                }
+
+                // Simple circle-based collision detection (30 is player size, ~8 is projectile size)
+                double dx = proj.x - player.x;
+                double dy = proj.y - player.y;
+                double distance = Math.sqrt(dx * dx + dy * dy);
+                double collisionDistance = 15 + 8; // player radius + projectile radius
+
+                if (distance < collisionDistance) {
+                    player.hit();
+                    // Mark projectile as dead
+                    proj.life = 0;
+                    logger.info("Player {} hit by projectile {}! Lives remaining: {}", 
+                        player.id, proj.id, player.lives);
+                    break; // projectile can only hit one player
+                }
+            }
         }
     }
 

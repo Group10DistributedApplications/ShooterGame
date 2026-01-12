@@ -44,6 +44,8 @@ export default class GameScene extends Phaser.Scene {
       if (id === this.localPlayerId) {
         // apply authoritative server state for local player
         this.player.setTarget(p.x || 0, p.y || 0);
+        this.player.setLives(p.lives !== undefined ? p.lives : 3);
+        this.player.setInvulnerable(p.invulnerableTime > 0);
         continue;
       }
 
@@ -53,12 +55,14 @@ export default class GameScene extends Phaser.Scene {
         this.remotePlayers.set(id, rp);
       }
       rp.setTarget(p.x || 0, p.y || 0);
+      rp.setLives(p.lives !== undefined ? p.lives : 3);
+      rp.setInvulnerable(p.invulnerableTime > 0);
     }
 
     // remove remote players not present anymore
     for (const [id, rp] of Array.from(this.remotePlayers.entries())) {
       if (!seen.has(id)) {
-        rp.sprite.destroy();
+        rp.destroy();
         this.remotePlayers.delete(id);
       }
     }

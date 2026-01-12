@@ -8,6 +8,8 @@ public class PlayerState {
     public final int id;
     public double x = 400.0;
     public double y = 300.0;
+    public int lives = 3;
+    public double invulnerableTime = 0.0; // seconds of invulnerability after being hit
 
     private boolean up = false;
     private boolean down = false;
@@ -68,6 +70,26 @@ public class PlayerState {
 
         x += dx * speed * dt;
         y += dy * speed * dt;
+
+        // Decrease invulnerability time
+        if (invulnerableTime > 0) {
+            invulnerableTime -= dt;
+        }
+    }
+
+    public void hit() {
+        if (invulnerableTime <= 0 && lives > 0) {
+            lives--;
+            invulnerableTime = 2.0; // 2 seconds of invulnerability after being hit
+        }
+    }
+
+    public boolean isInvulnerable() {
+        return invulnerableTime > 0;
+    }
+
+    public boolean isAlive() {
+        return lives > 0;
     }
 
     public boolean isUp() {
