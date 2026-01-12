@@ -34,7 +34,7 @@ public class Main {
         gameLoop.start();
 
         // Start input consumer (blocking operation in separate thread)
-        InputConsumer inputConsumer = new InputConsumer(space, gameLoop.getWorldState());
+        InputConsumer inputConsumer = new InputConsumer(space, gameLoop);
         inputConsumer.start();
 
         // Start console input handler

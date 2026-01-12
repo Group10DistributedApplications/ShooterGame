@@ -28,7 +28,7 @@ export default class GameScene extends Phaser.Scene {
     this.connCheckId = window.setInterval(() => {
       try {
         if (!this.registered && net.isConnected()) {
-          net.register(this.localPlayerId);
+          net.register(this.localPlayerId, net.getGameId());
           this.registered = true;
           if (this.connCheckId) {
             clearInterval(this.connCheckId);

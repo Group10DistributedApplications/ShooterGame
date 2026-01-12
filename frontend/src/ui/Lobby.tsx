@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { connect, disconnect, SERVER_URL, isConnected } from "../network";
+import { connect, disconnect, SERVER_URL, isConnected, setGameId } from "../network";
 
 const STORAGE_KEY = "sg_servers";
 
@@ -38,6 +38,8 @@ export default function Lobby({ containerEl }: { containerEl?: HTMLElement | nul
   function handleConnect() {
     const full = normalizeUrl(url);
     connect(full);
+    // use host:port as a simple game id
+    setGameId(stripProtocolPort(full));
     const next = [full, ...recent.filter((r) => r !== full)].slice(0, 6);
     setRecent(next);
     saveServers(next);
@@ -53,6 +55,7 @@ export default function Lobby({ containerEl }: { containerEl?: HTMLElement | nul
     // r is normalized (ws://host:port)
     setUrl(stripProtocolPort(r));
     connect(r);
+    setGameId(stripProtocolPort(r));
     const next = [r, ...recent.filter((x) => x !== r)].slice(0, 6);
     setRecent(next);
     saveServers(next);
