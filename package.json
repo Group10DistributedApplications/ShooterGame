@@ -2,7 +2,7 @@
   "name": "shootergame",
   "private": true,
   "scripts": {
-    "start": "concurrently \"npm:backend\" \"npm:frontend\" -n backend,frontend -k",
+    "start": "node scripts/start.js",
     "backend": "cd backend && mvn exec:java",
     "frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && mvn exec:java",

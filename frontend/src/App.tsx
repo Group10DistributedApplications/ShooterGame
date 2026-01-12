@@ -1,19 +1,21 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { startGame } from "./game/phaserGame";
-import { connect, disconnect } from "./network";
+import { disconnect } from "./network";
 import Hud from "./ui/Hud";
+import Lobby from "./ui/Lobby";
 
 function App() {
   const gameRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [containerEl, setContainerEl] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     if (gameRef.current) {
       startGame(gameRef.current);
     }
-
-    // start network (stub). Change URL as needed.
-    connect();
+    // ensure we pass the wrapper element to Lobby after mount
+    setContainerEl(wrapperRef.current);
 
     return () => {
       disconnect();
@@ -22,8 +24,9 @@ function App() {
   }, []);
 
   return (
-    <div style={{ width: "100vw", height: "100vh", position: "relative", overflow: "hidden" }}>
-      <div ref={gameRef} />
+    <div ref={wrapperRef} style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div ref={gameRef} style={{ width: 800, height: 600 }} />
+      <Lobby containerEl={containerEl} />
       <Hud />
     </div>
   );

@@ -74,6 +74,17 @@ public class NetworkServer extends WebSocketServer {
         }
     }
 
+    public void broadcastToGame(String gameId, String message) {
+        for (WebSocket socket : clientRegistry.getSocketsForGame(gameId)) {
+            try {
+                socket.send(message);
+            } catch (Exception e) {
+                logger.error("Error broadcasting to {}: {}", 
+                    socket.getRemoteSocketAddress(), e.getMessage());
+            }
+        }
+    }
+
     public ClientRegistry getClientRegistry() {
         return clientRegistry;
     }

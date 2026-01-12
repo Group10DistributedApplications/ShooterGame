@@ -41,6 +41,16 @@ export function connect(url = SERVER_URL) {
   }
 }
 
+let currentGameId: string | undefined = undefined;
+
+export function setGameId(id: string | undefined) {
+  currentGameId = id;
+}
+
+export function getGameId(): string | undefined {
+  return currentGameId;
+}
+
 export function disconnect() {
   if (!ws) return;
   ws.close();
@@ -49,7 +59,6 @@ export function disconnect() {
 
 export function sendRaw(message: string) {
   if (!ws) {
-    connect(SERVER_URL);
     sendQueue.push(message);
     return;
   }
@@ -65,8 +74,10 @@ export function sendInput(playerId: number, action: string, payload?: any) {
   sendRaw(msg);
 }
 
-export function register(playerId: number) {
-  const msg = JSON.stringify({ type: "register", playerId });
+export function register(playerId: number, gameId?: string) {
+  const payload: any = { type: "register", playerId };
+  if (gameId) payload.gameId = gameId;
+  const msg = JSON.stringify(payload);
   sendRaw(msg);
 }
 

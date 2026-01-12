@@ -20,6 +20,8 @@ export default class GameScene extends Phaser.Scene {
   private debugText?: Phaser.GameObjects.Text;
   private statusText?: Phaser.GameObjects.Text;
   private remoteProjectiles: Map<number, Projectile> = new Map();
+  private registered: boolean = false;
+  private connCheckId: number | null = null;
 
   constructor() {
     super("game");
@@ -27,9 +29,22 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     this.player = new Player(this, 400, 300, 0x00ff00);
-    net.connect();
-    // register with a locally-generated unique id to avoid collisions
-    net.register(this.localPlayerId);
+    // Do not auto-connect here; wait for the user to connect from the Lobby.
+    // Once a connection is established, register this client with the server.
+    this.connCheckId = window.setInterval(() => {
+      try {
+        if (!this.registered && net.isConnected()) {
+          net.register(this.localPlayerId, net.getGameId());
+          this.registered = true;
+          if (this.connCheckId) {
+            clearInterval(this.connCheckId);
+            this.connCheckId = null;
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }, 250);
     this.inputManager = new InputManager(this, this.localPlayerId, () => this.player.facing || "up");
     net.onState((state) => this.handleState(state));
     this.debugText = this.add.text(8, 8, "", { font: "14px monospace", color: "#ffffff" }).setDepth(1000);
@@ -39,6 +54,14 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(2000)
       .setScrollFactor(0);
     if (this.statusText) this.statusText.setVisible(!net.isConnected());
+
+    // ensure interval is cleared when the scene shuts down
+    this.events.on("shutdown", () => {
+      if (this.connCheckId) {
+        clearInterval(this.connCheckId);
+        this.connCheckId = null;
+      }
+    });
   }
 
   private handleState(state: any) {

@@ -36,7 +36,6 @@ public class MessageHandler {
             JsonObject obj = serializer.fromJson(message, JsonObject.class);
             String type = obj.has("type") ? obj.get("type").getAsString() : "";
 
-            logger.debug("Received message from {} type={}", conn.getRemoteSocketAddress(), type);
 
             switch (type) {
                 case "register":
@@ -65,10 +64,12 @@ public class MessageHandler {
         }
 
         int playerId = obj.get("playerId").getAsInt();
+        String gameId = obj.has("gameId") ? obj.get("gameId").getAsString() : "default";
 
         try {
-            clientRegistry.register(conn, playerId);
-            TupleSpaces.putPlayer(space, playerId);
+            clientRegistry.register(conn, gameId, playerId);
+            TupleSpaces.putPlayer(space, gameId, playerId);
+            logger.info("Player {} registered for gameId={}", playerId, gameId);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             sendError(conn, "Operation interrupted");
@@ -92,8 +93,10 @@ public class MessageHandler {
         String payload = obj.has("payload") ? obj.get("payload").getAsString() : "";
 
         try {
-            // Write to tuple space
-            TupleSpaces.putInput(space, playerId, action, payload);
+            // Determine gameId from registry and write to game-scoped tuple space
+            String gameId = clientRegistry.getGameId(conn);
+            if (gameId == null) gameId = "default";
+            TupleSpaces.putInput(space, gameId, playerId, action, payload);
             logger.debug("Stored input: player={} action={} payload={}", playerId, action, payload);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

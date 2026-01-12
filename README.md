@@ -54,12 +54,12 @@ Running on multiple computers video: https://www.youtube.com/shorts/76W1ZtZfgFk
 
 > Provide here installation requirements and instructions. Your goal here is that anyone else following the course should be able to follow the steps and run your project.
 
-## Backend setup
 - Java 21
 - Maven
 - Node.js (npm)
 - Git
 
+from root
 Setup:
 npm run setup   (runs scripts/setup.js script)
 
