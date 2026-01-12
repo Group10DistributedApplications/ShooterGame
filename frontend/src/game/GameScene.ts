@@ -5,6 +5,12 @@ import * as net from "../network";
 import Projectile from "./projectile/Projectile";
 import type { ProjectileConfig } from "./projectile/Projectile";
 
+const PLAYER_COLORS = [
+  0xff0000, // player 1 red
+  0x00ff00, // player 2 green
+  0x0000ff, // player 3 blue
+  0xff00ff, // player 4 purple
+]
 export default class GameScene extends Phaser.Scene {
   private player!: Player;
   private inputManager!: InputManager;
