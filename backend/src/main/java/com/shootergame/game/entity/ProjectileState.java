@@ -29,6 +29,6 @@ public class ProjectileState {
     }
 
     public boolean isOutOfBounds() {
-        return x < -100 || x > 2000 || y < -100 || y > 2000;
+        return x < 30 || x > 610 || y < 76 || y > 450;
     }
 }
