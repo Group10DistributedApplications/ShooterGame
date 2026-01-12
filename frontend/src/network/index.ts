@@ -1,7 +1,11 @@
+// can change to your server IP if needed
+// Example: export const SERVER_URL = "ws://192.168.1.23:3000";
+export const SERVER_URL = "ws://localhost:3000";
+
 let ws: WebSocket | null = null;
 let sendQueue: string[] = [];
 
-export function connect(url = "ws://localhost:3000") {
+export function connect(url = SERVER_URL) {
   if (ws) return;
   try {
     ws = new WebSocket(url);
@@ -45,7 +49,7 @@ export function disconnect() {
 
 export function sendRaw(message: string) {
   if (!ws) {
-    connect();
+    connect(SERVER_URL);
     sendQueue.push(message);
     return;
   }
