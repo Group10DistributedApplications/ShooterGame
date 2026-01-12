@@ -87,7 +87,10 @@ export default class GameScene extends Phaser.Scene {
       seen.add(id);
       if (id === this.localPlayerId) {
         // apply authoritative server state for local player
-        this.player.setTarget(p.x || 0, p.y || 0);
+        // Clamp coordinates to stay within map bounds (40x30 tiles at 16px = 640x480)
+        const clampedX = Phaser.Math.Clamp(p.x || 0, 30, 610);
+        const clampedY = Phaser.Math.Clamp(p.y || 0, 30, 450);
+        this.player.setTarget(clampedX, clampedY);
         continue;
       }
 
@@ -98,7 +101,10 @@ export default class GameScene extends Phaser.Scene {
         // Add collision for remote player
         this.physics.add.collider(rp.sprite, this.wallsLayer);
       }
-      rp.setTarget(p.x || 0, p.y || 0);
+      // Clamp remote player coordinates too
+      const clampedX = Phaser.Math.Clamp(p.x || 0, 30, 610);
+      const clampedY = Phaser.Math.Clamp(p.y || 0, 30, 450);
+      rp.setTarget(clampedX, clampedY);
     }
 
     // remove remote players not present anymore

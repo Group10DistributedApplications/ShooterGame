@@ -15,9 +15,7 @@ export default class Player {
     scene.physics.add.existing(this.sprite);
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
-    body.setBounce(0, 0); // No bounce
-    body.setDrag(0, 0); // No drag
-    body.setMaxVelocity(400, 400); // Limit max velocity
+    body.setMaxVelocity(500, 500);
     this.targetX = x;
     this.targetY = y;
   }
@@ -25,6 +23,9 @@ export default class Player {
   setPosition(x: number, y: number) {
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
     body.reset(x, y);
+    body.setVelocity(0, 0);
+    this.targetX = x;
+    this.targetY = y;
   }
 
   setTarget(x: number, y: number) {
@@ -32,24 +33,23 @@ export default class Player {
     this.targetY = y;
   }
 
-  // interpolate toward target each frame; delta in ms
+  // interpolate toward target each frame using velocity (respects collision)
   update(delta: number) {
     if (this.targetX === null || this.targetY === null) return;
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
     
-    // Calculate distance to target
     const dx = this.targetX - this.sprite.x;
     const dy = this.targetY - this.sprite.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    // If very close to target, stop moving
-    if (distance < 2) {
+    // Stop if very close to target
+    if (distance < 3) {
       body.setVelocity(0, 0);
       return;
     }
     
-    // Move toward target with velocity (physics will handle collision)
-    const speed = 300;
+    // Move using velocity (physics handles collision)
+    const speed = Math.min(distance * 8, 400);
     body.setVelocity(
       (dx / distance) * speed,
       (dy / distance) * speed
