@@ -22,8 +22,21 @@ function saveServers(list: string[]) {
 }
 
 export default function Lobby({ containerEl }: { containerEl?: HTMLElement | null } = {}) {
-  const [url, setUrl] = useState<string>("localhost");
   const [recent, setRecent] = useState<string[]>([]);
+  const [url, setUrl] = useState<string>(() => {
+    try {
+      if (typeof window !== "undefined" && window.location) {
+        const host = window.location.hostname;
+        const pageDefault = `${host}:3000`;
+        return pageDefault;
+      }
+      const rec = loadServers();
+      if (rec && rec.length > 0) {
+        return stripProtocolPort(rec[0]);
+      }
+    } catch (e) {}
+    return "localhost";
+  });
   const [connected, setConnected] = useState<boolean>(isConnected());
 
   useEffect(() => {
