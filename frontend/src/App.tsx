@@ -3,7 +3,7 @@ import "./App.css";
 import { startGame } from "./game/phaserGame";
 import { disconnect } from "./network";
 import Hud from "./ui/Hud";
-import Lobby from "./ui/Lobby";
+import Lobby from "./ui/lobby/Lobby";
 
 function App() {
   const gameRef = useRef<HTMLDivElement>(null);
