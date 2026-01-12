@@ -53,8 +53,8 @@ export default class GameScene extends Phaser.Scene {
 
     // --- PLAYER SETUP ---
     this.player = new Player(this, 400, 300, 0x00ff00);
-    this.player.setManualControl(true);
-    this.physics.add.collider(this.player.sprite, this.wallsLayer);
+    // Enable target-chasing so player follows server position updates
+    this.player.setManualControl(false);
 
     // world & camera bounds match the map size
     const mapW = map.widthInPixels;
@@ -123,16 +123,8 @@ export default class GameScene extends Phaser.Scene {
       const id = p.id as number;
       seen.add(id);
       if (id === this.localPlayerId) {
-        // Reconcile only if far off and target tile is not collidable
-        const clampedX = Phaser.Math.Clamp(p.x || 0, 30, 610);
-        const clampedY = Phaser.Math.Clamp(p.y || 0, 30, 450);
-        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, clampedX, clampedY);
-        const targetTile = this.wallsLayer.getTileAtWorldXY(clampedX, clampedY, true);
-        const targetBlocked = !!(targetTile && targetTile.collides);
-        if (!targetBlocked && dist > 48) {
-          const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
-          body.reset(clampedX, clampedY);
-        }
+        // apply authoritative server state for local player
+        this.player.setTarget(p.x || 0, p.y || 0);
         continue;
       }
 
@@ -143,10 +135,7 @@ export default class GameScene extends Phaser.Scene {
         // Add collision for remote player
         this.physics.add.collider(rp.sprite, this.wallsLayer);
       }
-      // Clamp remote player coordinates too
-      const clampedX = Phaser.Math.Clamp(p.x || 0, 30, 610);
-      const clampedY = Phaser.Math.Clamp(p.y || 0, 30, 450);
-      rp.setTarget(clampedX, clampedY);
+      rp.setTarget(p.x || 0, p.y || 0);
     }
 
     // remove remote players not present anymore
@@ -195,20 +184,6 @@ export default class GameScene extends Phaser.Scene {
     // update local facing from input so FIRE uses correct heading
     const dir = this.inputManager.getDirection();
     if (dir) this.player.facing = dir;
-
-    // Manual local movement: use axes to preserve diagonals
-    const { x: ax, y: ay } = this.inputManager.getAxes();
-    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
-    const speed = 200;
-    let vx = ax * speed;
-    let vy = ay * speed;
-    if (vx !== 0 && vy !== 0) {
-      const diag = speed / Math.SQRT2;
-      vx = Math.sign(vx) * diag;
-      vy = Math.sign(vy) * diag;
-    }
-    body.setVelocity(vx, vy);
-    if (ax === 0 && ay === 0) body.setVelocity(0, 0);
     // Update remote projectiles (interpolate locally between server updates)
     for (const p of this.remoteProjectiles.values()) {
       p.sprite.x += p.vx * delta / 1000;
@@ -219,21 +194,13 @@ export default class GameScene extends Phaser.Scene {
     for (const rp of this.remotePlayers.values()) {
       rp.update(delta);
     }
-    // Local player is manual; remote players still interpolate
+    // Update local player 
+    this.player.update(delta);
 
     // connection status indicator
     if (this.statusText) {
       this.statusText.setVisible(!net.isConnected());
     }
-
-    // Remove remote projectiles that go off screen (optional cleanup — server should remove expired ones)
-    for (const [id, p] of Array.from(this.remoteProjectiles.entries())) {
-      if (p.sprite.x <= -20 || p.sprite.x >= 820 || p.sprite.y <= -20 || p.sprite.y >= 620) {
-        p.sprite.destroy();
-        this.remoteProjectiles.delete(id);
-      }
-    }
   }
-
   
 }
