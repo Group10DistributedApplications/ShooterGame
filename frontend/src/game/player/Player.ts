@@ -7,7 +7,7 @@ export default class Player {
   private targetX: number | null = null;
   private targetY: number | null = null;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, color = 0x00ff00, size = 30) {
+  constructor(scene: Phaser.Scene, x: number, y: number, color: number = 0xffffff, size = 30) {
     this.sprite = scene.add.rectangle(x, y, size, size, color);
     this.targetX = x;
     this.targetY = y;
@@ -15,10 +15,6 @@ export default class Player {
 
   setColor(color: number) {
     if (!this.sprite) return;
-    if ((this.sprite as any).setTint) {
-      (this.sprite as any).setTint(color);
-      return;
-    }
     if ((this.sprite as any).setFillStyle) {
       (this.sprite as any).setFillStyle(color);
       return;
