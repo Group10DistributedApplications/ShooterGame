@@ -69,9 +69,9 @@ public class PlayerState {
         double nx = x + dx * speed * dt;
         double ny = y + dy * speed * dt;
 
-        // Clamp to world bounds (40x30 tiles at 16px = 640x480; keep margin inside walls)
+        // Clamp to world bounds (keep margin inside walls, avoid table area at top)
         nx = Math.max(30.0, Math.min(610.0, nx));
-        ny = Math.max(30.0, Math.min(450.0, ny));
+        ny = Math.max(76.0, Math.min(450.0, ny));
 
         x = nx;
         y = ny;
