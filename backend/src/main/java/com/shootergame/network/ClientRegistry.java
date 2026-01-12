@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.java_websocket.WebSocket;
+import com.shootergame.config.SharedConfig;
 
 /**
  * Manages the registry of connected clients.
@@ -30,6 +31,11 @@ public class ClientRegistry {
      * Register a client connection with a player ID and gameId.
      */
     public void register(WebSocket socket, String gameId, int playerId) {
+        int max = SharedConfig.getInt("MAX_PLAYERS", 6);
+        int current = getSocketsForGame(gameId).size();
+        if (current >= max) {
+            throw new IllegalStateException("Game full");
+        }
         clients.put(socket, new ClientInfo(gameId, playerId));
     }
 

@@ -70,6 +70,11 @@ public class MessageHandler {
             clientRegistry.register(conn, gameId, playerId);
             TupleSpaces.putPlayer(space, gameId, playerId);
             logger.info("Player {} registered for gameId={}", playerId, gameId);
+        } catch (IllegalStateException e) {
+            // registry enforces capacity
+            sendError(conn, "Game is full");
+            logger.info("Registration rejected for player {}: {}", playerId, e.getMessage());
+            return;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             sendError(conn, "Operation interrupted");
