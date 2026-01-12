@@ -24,8 +24,9 @@ export default class GameScene extends Phaser.Scene {
   private debugText?: Phaser.GameObjects.Text;
   private statusText?: Phaser.GameObjects.Text;
   private remoteProjectiles: Map<number, Projectile> = new Map();
-
   private unsubscribeState: (() => void) | null = null;
+  private registered: boolean = false;
+  private connCheckId: number | null = null;
 
   constructor() {
     super("game");
@@ -63,10 +64,41 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
 
     // --- NETWORK SETUP ---
-    net.connect();
-    net.register(this.localPlayerId);
+    // Do NOT auto-connect or auto-register here; Lobby controls connection.
     this.inputManager = new InputManager(this, this.localPlayerId, () => this.player.facing || "up");
     this.unsubscribeState = net.onState((state) => this.handleState(state));
+    const unsubscribeConn = net.onConnectionChange((connected) => {
+      if (!connected) {
+        // mark as not registered so we re-register on reconnect
+        this.registered = false;
+        return;
+      }
+
+      // on connect: if not yet registered, register now
+      if (!this.registered && net.isConnected()) {
+        try {
+          net.register(this.localPlayerId, net.getGameId());
+          this.registered = true;
+        } catch (e) {
+          // ignore
+        }
+      }
+    });
+
+    // attempt initial registration; if not connected yet, poll until connected
+    if (net.isConnected()) {
+      try { net.register(this.localPlayerId, net.getGameId()); this.registered = true; } catch (e) { /* ignore */ }
+    } else {
+      this.connCheckId = window.setInterval(() => {
+        try {
+          if (!this.registered && net.isConnected()) {
+            net.register(this.localPlayerId, net.getGameId());
+            this.registered = true;
+            if (this.connCheckId) { clearInterval(this.connCheckId); this.connCheckId = null; }
+          }
+        } catch (e) { /* ignore */ }
+      }, 250);
+    }
 
     this.debugText = this.add.text(8, 8, "", { font: "14px monospace", color: "#ffffff" }).setDepth(1000);
     const cx = this.cameras.main.centerX;
@@ -75,6 +107,8 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(2000);
     if (this.statusText) this.statusText.setVisible(!net.isConnected());
     this.events.on("shutdown", () => {
+      if (this.connCheckId) { clearInterval(this.connCheckId); this.connCheckId = null; }
+      try { unsubscribeConn(); } catch (e) { }
       if (this.unsubscribeState) {
         try { this.unsubscribeState(); } catch (_) { /* ignore */ }
         this.unsubscribeState = null;
