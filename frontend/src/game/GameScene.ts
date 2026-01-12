@@ -58,6 +58,8 @@ export default class GameScene extends Phaser.Scene {
 
     // --- PLAYER SETUP ---
     this.player = new Player(this, 320, 240, 0x00ff00);
+    // Drive the local player purely by client input (no server correction)
+    this.player.setManualControl(true);
     this.physics.add.collider(this.player.sprite, this.wallsLayer);
     
     // Set world bounds to match map size (40x30 tiles at 16px = 640x480)
@@ -86,11 +88,16 @@ export default class GameScene extends Phaser.Scene {
       const id = p.id as number;
       seen.add(id);
       if (id === this.localPlayerId) {
-        // apply authoritative server state for local player
-        // Clamp coordinates to stay within map bounds (40x30 tiles at 16px = 640x480)
+        // Reconcile only if far off and target tile is not collidable
         const clampedX = Phaser.Math.Clamp(p.x || 0, 30, 610);
         const clampedY = Phaser.Math.Clamp(p.y || 0, 30, 450);
-        this.player.setTarget(clampedX, clampedY);
+        const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, clampedX, clampedY);
+        const targetTile = this.wallsLayer.getTileAtWorldXY(clampedX, clampedY, true);
+        const targetBlocked = !!(targetTile && targetTile.collides);
+        if (!targetBlocked && dist > 48) {
+          const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
+          body.reset(clampedX, clampedY);
+        }
         continue;
       }
 
@@ -153,6 +160,18 @@ export default class GameScene extends Phaser.Scene {
     // update local facing from input so FIRE uses correct heading
     const dir = this.inputManager.getDirection();
     if (dir) this.player.facing = dir;
+    // Manual local movement: set velocity directly, let physics handle collision
+    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
+    const speed = 200;
+    let vx = 0;
+    let vy = 0;
+    if (dir === "left") vx = -speed;
+    if (dir === "right") vx = speed;
+    if (dir === "up") vy = -speed;
+    if (dir === "down") vy = speed;
+    body.setVelocity(vx, vy);
+    // Prevent sliding when no input
+    if (!dir) body.setVelocity(0, 0);
     // Update remote projectiles (interpolate locally between server updates)
     for (const p of this.remoteProjectiles.values()) {
       p.sprite.x += p.vx * delta / 1000;
@@ -163,8 +182,7 @@ export default class GameScene extends Phaser.Scene {
     for (const rp of this.remotePlayers.values()) {
       rp.update(delta);
     }
-    // Update local player 
-    this.player.update(delta);
+    // Local player is manual; remote players still interpolate
 
     // connection status indicator
     if (this.statusText) {

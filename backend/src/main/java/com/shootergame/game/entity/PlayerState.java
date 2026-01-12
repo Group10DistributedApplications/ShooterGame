@@ -66,8 +66,15 @@ public class PlayerState {
         if (right)
             dx += 1;
 
-        x += dx * speed * dt;
-        y += dy * speed * dt;
+        double nx = x + dx * speed * dt;
+        double ny = y + dy * speed * dt;
+
+        // Clamp to world bounds (40x30 tiles at 16px = 640x480; keep margin inside walls)
+        nx = Math.max(30.0, Math.min(610.0, nx));
+        ny = Math.max(30.0, Math.min(450.0, ny));
+
+        x = nx;
+        y = ny;
     }
 
     public boolean isUp() {
