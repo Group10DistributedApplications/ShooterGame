@@ -1,3 +1,4 @@
+
 import Phaser from "phaser";
 import Player from "./player/Player";
 import InputManager from "./input/InputManager";
@@ -5,9 +6,18 @@ import * as net from "../network";
 import Projectile from "./projectile/Projectile";
 import type { ProjectileConfig } from "./projectile/Projectile";
 
+// Map/tileset asset paths
+const MAP_KEY = "map1";
+const MAP_PATH = "assets/maps/Map1.tmj";
+const TILESET1_KEY = "TileA5_PHC_Interior-Hospital.png";
+const TILESET1_IMAGE = "assets/tilesets/TileA5_PHC_Interior-Hospital.png";
+const TILESET2_KEY = "TileA4_PHC_Interior-Hospital.png";
+const TILESET2_IMAGE = "assets/tilesets/TileA4_PHC_Interior-Hospital.png";
+
 export default class GameScene extends Phaser.Scene {
   private player!: Player;
   private inputManager!: InputManager;
+  private wallsLayer!: Phaser.Tilemaps.TilemapLayer;
   
   private remotePlayers: Map<number, Player> = new Map();
   private localPlayerId: number = Math.floor(Math.random() * 9000) + 1000; // random 1000-9999
@@ -19,19 +29,53 @@ export default class GameScene extends Phaser.Scene {
     super("game");
   }
 
+  preload() {
+    // Load map and tilesets
+    this.load.tilemapTiledJSON(MAP_KEY, MAP_PATH);
+    this.load.image(TILESET1_KEY, "assets/tilesets/" + TILESET1_KEY);
+    this.load.image(TILESET2_KEY, "assets/tilesets/" + TILESET2_KEY);
+  }
+
   create() {
-    this.player = new Player(this, 400, 300, 0x00ff00);
+    // --- MAP SETUP ---
+    const map = this.make.tilemap({ key: MAP_KEY });
+    // The names below must match the 'name' field in Tiled's tileset properties (not the filename)
+    const tileset1 = map.addTilesetImage("Interior-Hospital floor", TILESET1_KEY);
+    const tileset2 = map.addTilesetImage("Interior-Hospital Walls", TILESET2_KEY);
+    if (!tileset1 || !tileset2) {
+      throw new Error("Tileset(s) not found. Check that the tileset names in Tiled and the asset keys in Phaser match exactly.");
+    }
+    // Create layers (order: background first)
+    const groundLayer = map.createLayer("Ground", [tileset1, tileset2], 0, 0);
+    this.wallsLayer = map.createLayer("Walls", [tileset1, tileset2], 0, 0)!;
+    
+    if (!this.wallsLayer) {
+      throw new Error("Failed to create walls layer");
+    }
+    
+    // Set up collision on the walls layer
+    this.wallsLayer.setCollisionByExclusion([-1, 0]);
+
+    // --- PLAYER SETUP ---
+    this.player = new Player(this, 320, 240, 0x00ff00);
+    this.physics.add.collider(this.player.sprite, this.wallsLayer);
+    
+    // Set world bounds to match map size (40x30 tiles at 16px = 640x480)
+    this.physics.world.setBounds(0, 0, 640, 480);
+
+    // --- NETWORK SETUP ---
     net.connect();
-    // register with a locally-generated unique id to avoid collisions
     net.register(this.localPlayerId);
     this.inputManager = new InputManager(this, this.localPlayerId, () => this.player.facing || "up");
     net.onState((state) => this.handleState(state));
-    this.debugText = this.add.text(8, 8, "", { font: "14px monospace", color: "#ffffff" }).setDepth(1000);
+
+    // --- HUD SETUP ---
+    this.debugText = this.add.text(8, 8, "", { font: "14px monospace", color: "#ffffff" })
+      .setDepth(1000);
     const cx = this.cameras.main.centerX;
     this.statusText = this.add.text(cx, 20, "Disconnected", { font: "16px monospace", color: "#ff0000" })
       .setOrigin(0.5, 0)
-      .setDepth(2000)
-      .setScrollFactor(0);
+      .setDepth(2000);
     if (this.statusText) this.statusText.setVisible(!net.isConnected());
   }
 
@@ -51,6 +95,8 @@ export default class GameScene extends Phaser.Scene {
       if (!rp) {
         rp = new Player(this, p.x || 0, p.y || 0, 0x0000ff, 30);
         this.remotePlayers.set(id, rp);
+        // Add collision for remote player
+        this.physics.add.collider(rp.sprite, this.wallsLayer);
       }
       rp.setTarget(p.x || 0, p.y || 0);
     }
