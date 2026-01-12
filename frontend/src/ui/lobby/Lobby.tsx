@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { connect, disconnect, isConnected, setGameId, onConnectionChange } from "../../network";
+import { connect, disconnect, isConnected, setGameId, onConnectionChange, onRegistered, onError } from "../../network";
 import LobbyHeader from "./LobbyHeader";
 import ServerList from "./ServerList";
 import LobbyControls from "./LobbyControls";
@@ -33,9 +33,9 @@ function useRecentServers() {
   return { recent, add, remove };
 }
 
-type Props = { containerEl?: HTMLElement | null };
+type Props = { containerEl?: HTMLElement | null; maxPlayers?: number };
 
-export default function Lobby({ containerEl }: Props = {}) {
+export default function Lobby({ containerEl, maxPlayers }: Props = {}) {
   const { recent, add, remove } = useRecentServers();
   const [url, setUrl] = useState<string>(() => {
     try {
@@ -53,11 +53,32 @@ export default function Lobby({ containerEl }: Props = {}) {
   });
 
   const [connected, setConnected] = useState<boolean>(isConnected());
+  const [registered, setRegistered] = useState<boolean>(false);
+  const [regError, setRegError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsub = onConnectionChange((c) => setConnected(c));
+    const unsubConn = onConnectionChange((c) => {
+      setConnected(c);
+      if (!c) {
+        setRegistered(false);
+        setRegError(null);
+      }
+    });
+    const unsubReg = onRegistered((pid: number) => {
+      // any successful registration indicates connection is accepted
+      setRegistered(true);
+      setRegError(null);
+    });
+    const unsubErr = onError((msg: string) => {
+      setRegError(msg || "");
+      setRegistered(false);
+    });
     setConnected(isConnected());
-    return unsub;
+    return () => {
+      try { unsubConn(); } catch (e) {}
+      try { unsubReg(); } catch (e) {}
+      try { unsubErr(); } catch (e) {}
+    };
   }, []);
 
   function handleConnect() {
@@ -90,7 +111,7 @@ export default function Lobby({ containerEl }: Props = {}) {
   const lobbyEl = (
     <div style={container}>
       <div style={box}>
-        <LobbyHeader connected={connected} />
+        <LobbyHeader connected={connected} maxPlayers={maxPlayers} isRegistered={registered} registrationError={regError} />
         <LobbyControls url={url} onChange={setUrl} onKeyDown={handleKey} onConnect={handleConnect} onDisconnect={handleDisconnect} connected={connected} />
         <ServerList items={recent} onUse={useRecent} onRemove={removeRecent} />
       </div>

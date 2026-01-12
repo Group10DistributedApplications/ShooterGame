@@ -5,6 +5,8 @@ export const SERVER_URL = "ws://localhost:3000";
 let ws: WebSocket | null = null;
 let sendQueue: string[] = [];
 let connectionHandlers: Array<(connected: boolean) => void> = [];
+let registeredHandlers: Array<(playerId: number) => void> = [];
+let errorHandlers: Array<(message: string) => void> = [];
 
 export function connect(url = SERVER_URL) {
   if (ws) return;
@@ -22,10 +24,23 @@ export function connect(url = SERVER_URL) {
     ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data);
-        if (data && data.type === "state") {
-          stateHandlers.forEach((h) => h(data));
-          return;
+        if (!data || !data.type) return;
+
+        switch (data.type) {
+          case "state":
+            stateHandlers.forEach((h) => h(data));
+            break;
+          case "registered":
+            registeredHandlers.forEach((h) => h(data.playerId));
+            break;
+          case "error":
+            errorHandlers.forEach((h) => h(data.message || ""));
+            break;
+          default:
+            // unknown message types are ignored by default
+            break;
         }
+        return;
       } catch (e) {
         console.log("network: message (raw)", ev.data);
       }
@@ -94,6 +109,16 @@ export function onState(cb: (state: any) => void) {
   return () => {
     stateHandlers = stateHandlers.filter((h) => h !== cb);
   };
+}
+
+export function onRegistered(cb: (playerId: number) => void) {
+  registeredHandlers.push(cb);
+  return () => { registeredHandlers = registeredHandlers.filter(h => h !== cb); };
+}
+
+export function onError(cb: (message: string) => void) {
+  errorHandlers.push(cb);
+  return () => { errorHandlers = errorHandlers.filter(h => h !== cb); };
 }
 
 export function onConnectionChange(cb: (connected: boolean) => void) {
