@@ -49,7 +49,6 @@ export function disconnect() {
 
 export function sendRaw(message: string) {
   if (!ws) {
-    connect(SERVER_URL);
     sendQueue.push(message);
     return;
   }
