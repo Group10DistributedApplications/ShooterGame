@@ -161,18 +161,20 @@ export default class GameScene extends Phaser.Scene {
     // update local facing from input so FIRE uses correct heading
     const dir = this.inputManager.getDirection();
     if (dir) this.player.facing = dir;
-    // Manual local movement: set velocity directly, let physics handle collision
+
+    // Manual local movement: use axes to preserve diagonals
+    const { x: ax, y: ay } = this.inputManager.getAxes();
     const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
     const speed = 200;
-    let vx = 0;
-    let vy = 0;
-    if (dir === "left") vx = -speed;
-    if (dir === "right") vx = speed;
-    if (dir === "up") vy = -speed;
-    if (dir === "down") vy = speed;
+    let vx = ax * speed;
+    let vy = ay * speed;
+    if (vx !== 0 && vy !== 0) {
+      const diag = speed / Math.SQRT2;
+      vx = Math.sign(vx) * diag;
+      vy = Math.sign(vy) * diag;
+    }
     body.setVelocity(vx, vy);
-    // Prevent sliding when no input
-    if (!dir) body.setVelocity(0, 0);
+    if (ax === 0 && ay === 0) body.setVelocity(0, 0);
     // Update remote projectiles (interpolate locally between server updates)
     for (const p of this.remoteProjectiles.values()) {
       p.sprite.x += p.vx * delta / 1000;

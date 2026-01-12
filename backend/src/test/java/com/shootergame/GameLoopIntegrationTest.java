@@ -38,8 +38,8 @@ public class GameLoopIntegrationTest {
         Thread.sleep(200);
         gameLoop = new GameLoop(space, server);
         gameLoop.start();
-        // start input consumer so GameLoop's world state receives inputs
-        InputConsumer ic = new InputConsumer(space, gameLoop.getWorldState());
+        // start input consumer so GameLoop receives inputs
+        InputConsumer ic = new InputConsumer(space, gameLoop);
         ic.start();
     }
 
