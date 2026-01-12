@@ -59,6 +59,10 @@ export default function Lobby({ containerEl }: { containerEl?: HTMLElement | nul
     setConnected(true);
   }
 
+  function handleKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") handleConnect();
+  }
+
   function handleDisconnect() {
     disconnect();
     setConnected(false);
@@ -75,35 +79,54 @@ export default function Lobby({ containerEl }: { containerEl?: HTMLElement | nul
     setConnected(true);
   }
 
+  function removeRecent(r: string) {
+    const next = recent.filter((x) => x !== r);
+    setRecent(next);
+    saveServers(next);
+  }
+
   const lobbyEl = (
     <div style={container}>
       <div style={box}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>Lobby</div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={header}>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>Lobby</div>
+          <div style={statusRow}>
+            <div style={{ ...statusDot, background: connected ? "#25c26b" : "#d33" }} />
+            <div style={{ fontSize: 12, opacity: 0.9 }}>{connected ? "Connected" : "Disconnected"}</div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <input
             aria-label="server-url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder="host:port or ws://host:port"
             style={input}
           />
-          <button onClick={handleConnect} disabled={connected} style={btn}>
+          <button onClick={handleConnect} disabled={connected} style={connected ? btnDisabled : btn}>
             Connect
           </button>
-          <button onClick={handleDisconnect} disabled={!connected} style={btn}>
+          <button onClick={handleDisconnect} disabled={!connected} style={!connected ? btnDisabled : btnSecondary}>
             Disconnect
           </button>
         </div>
 
         {recent.length > 0 && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 12, opacity: 0.9, marginBottom: 4 }}>Recent</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 12, opacity: 0.9, marginBottom: 8 }}>Recent Servers</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {recent.map((r) => (
-                <div key={r} style={{ display: "flex", gap: 6 }}>
-                  <button onClick={() => useRecent(r)} style={smallButton}>
-                    Join
-                  </button>
-                  <div style={{ fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stripProtocolPort(r)}</div>
+                <div key={r} style={serverRow}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, cursor: "pointer" }} onClick={() => useRecent(r)}>
+                    <div style={serverIcon}>{stripProtocolPort(r)[0].toUpperCase()}</div>
+                    <div style={{ fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stripProtocolPort(r)}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => useRecent(r)} style={smallButton}>Join</button>
+                    <button onClick={() => removeRecent(r)} aria-label="remove" style={removeButton}>✕</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -206,4 +229,73 @@ const smallButton: React.CSSProperties = {
   background: "#2d8cff",
   color: "#fff",
   cursor: "pointer",
+};
+
+const btnSecondary: React.CSSProperties = {
+  padding: "6px 8px",
+  borderRadius: 4,
+  border: "1px solid rgba(255,255,255,0.06)",
+  background: "transparent",
+  color: "#fff",
+  cursor: "pointer",
+};
+
+const btnDisabled: React.CSSProperties = {
+  padding: "6px 8px",
+  borderRadius: 4,
+  border: "none",
+  background: "#444",
+  color: "#bbb",
+  cursor: "not-allowed",
+  opacity: 0.8,
+};
+
+const header: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+};
+
+const statusRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+const statusDot: React.CSSProperties = {
+  width: 10,
+  height: 10,
+  borderRadius: 10,
+  boxShadow: "0 0 6px rgba(0,0,0,0.6)",
+};
+
+const serverRow: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: "6px 8px",
+  borderRadius: 6,
+  background: "rgba(255,255,255,0.02)",
+};
+
+const serverIcon: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  borderRadius: 6,
+  background: "rgba(255,255,255,0.04)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontWeight: 700,
+  color: "#fff",
+};
+
+const removeButton: React.CSSProperties = {
+  padding: "4px 8px",
+  borderRadius: 6,
+  border: "none",
+  background: "transparent",
+  color: "#fff",
+  cursor: "pointer",
+  opacity: 0.7,
 };
