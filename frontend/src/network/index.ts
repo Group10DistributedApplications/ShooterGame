@@ -4,6 +4,7 @@ export const SERVER_URL = "ws://localhost:3000";
 
 let ws: WebSocket | null = null;
 let sendQueue: string[] = [];
+let connectionHandlers: Array<(connected: boolean) => void> = [];
 
 export function connect(url = SERVER_URL) {
   if (ws) return;
@@ -11,6 +12,7 @@ export function connect(url = SERVER_URL) {
     ws = new WebSocket(url);
     ws.onopen = () => {
       console.log("network: connected to", url);
+      connectionHandlers.forEach((h) => h(true));
       // flush queued messages
       while (sendQueue.length > 0) {
         const m = sendQueue.shift()!;
@@ -21,17 +23,16 @@ export function connect(url = SERVER_URL) {
       try {
         const data = JSON.parse(ev.data);
         if (data && data.type === "state") {
-          // pass full state (players + projectiles) to handlers
           stateHandlers.forEach((h) => h(data));
           return;
         }
-        // other message types can be handled here if needed
       } catch (e) {
         console.log("network: message (raw)", ev.data);
       }
     };
     ws.onclose = () => {
       console.log("network: closed");
+      connectionHandlers.forEach((h) => h(false));
       ws = null;
     };
     ws.onerror = (e) => console.error("network: error", e);
@@ -54,6 +55,7 @@ export function getGameId(): string | undefined {
 export function disconnect() {
   if (!ws) return;
   ws.close();
+  connectionHandlers.forEach((h) => h(false));
   ws = null;
 }
 
@@ -91,6 +93,13 @@ export function onState(cb: (state: any) => void) {
   stateHandlers.push(cb);
   return () => {
     stateHandlers = stateHandlers.filter((h) => h !== cb);
+  };
+}
+
+export function onConnectionChange(cb: (connected: boolean) => void) {
+  connectionHandlers.push(cb);
+  return () => {
+    connectionHandlers = connectionHandlers.filter((h) => h !== cb);
   };
 }
 

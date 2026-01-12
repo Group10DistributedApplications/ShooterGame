@@ -40,7 +40,24 @@ export default class GameScene extends Phaser.Scene {
       }
     }, 250);
     this.inputManager = new InputManager(this, this.localPlayerId, () => this.player.facing || "up");
-    net.onState((state) => this.handleState(state));
+    const unsubscribeState = net.onState((state) => this.handleState(state));
+    const unsubscribeConn = net.onConnectionChange((connected) => {
+      if (!connected) {
+        // mark as not registered so we re-register on reconnect
+        this.registered = false;
+        return;
+      }
+
+      // on connect: if not yet registered, register now
+      if (!this.registered && net.isConnected()) {
+        try {
+          net.register(this.localPlayerId, net.getGameId());
+          this.registered = true;
+        } catch (e) {
+          // ignore
+        }
+      }
+    });
     this.debugText = this.add.text(8, 8, "", { font: "14px monospace", color: "#ffffff" }).setDepth(1000);
     const cx = this.cameras.main.centerX;
     this.statusText = this.add.text(cx, 20, "Disconnected", { font: "16px monospace", color: "#ff0000" })
@@ -54,6 +71,17 @@ export default class GameScene extends Phaser.Scene {
       if (this.connCheckId) {
         clearInterval(this.connCheckId);
         this.connCheckId = null;
+      }
+      // unsubscribe connection change listener
+      try {
+        unsubscribeConn();
+      } catch (e) {
+        // ignore
+      }
+      try {
+        unsubscribeState();
+      } catch (e) {
+        // ignore
       }
     });
   }
