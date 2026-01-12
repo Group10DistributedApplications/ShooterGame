@@ -36,6 +36,7 @@ public class NetworkServer extends WebSocketServer {
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
         logger.info("Client connected: {}", conn.getRemoteSocketAddress());
+        clientRegistry.registerConnection(conn);
     }
 
     @Override

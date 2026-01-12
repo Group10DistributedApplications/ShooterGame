@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.shootergame.game.GameLoop;
+import com.shootergame.game.input.InputConsumer;
 import com.shootergame.network.NetworkServer;
 import com.google.gson.Gson;
 
@@ -37,6 +38,9 @@ public class GameLoopIntegrationTest {
         Thread.sleep(200);
         gameLoop = new GameLoop(space, server);
         gameLoop.start();
+        // start input consumer so GameLoop's world state receives inputs
+        InputConsumer ic = new InputConsumer(space, gameLoop.getWorldState());
+        ic.start();
     }
 
     @AfterEach

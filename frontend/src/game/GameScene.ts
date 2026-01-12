@@ -12,6 +12,7 @@ export default class GameScene extends Phaser.Scene {
   private remotePlayers: Map<number, Player> = new Map();
   private localPlayerId: number = Math.floor(Math.random() * 9000) + 1000; // random 1000-9999
   private debugText?: Phaser.GameObjects.Text;
+  private statusText?: Phaser.GameObjects.Text;
   private remoteProjectiles: Map<number, Projectile> = new Map();
 
   constructor() {
@@ -26,6 +27,12 @@ export default class GameScene extends Phaser.Scene {
     this.inputManager = new InputManager(this, this.localPlayerId, () => this.player.facing || "up");
     net.onState((state) => this.handleState(state));
     this.debugText = this.add.text(8, 8, "", { font: "14px monospace", color: "#ffffff" }).setDepth(1000);
+    const cx = this.cameras.main.centerX;
+    this.statusText = this.add.text(cx, 20, "Disconnected", { font: "16px monospace", color: "#ff0000" })
+      .setOrigin(0.5, 0)
+      .setDepth(2000)
+      .setScrollFactor(0);
+    if (this.statusText) this.statusText.setVisible(!net.isConnected());
   }
 
   private handleState(state: any) {
@@ -106,6 +113,11 @@ export default class GameScene extends Phaser.Scene {
     }
     // Update local player 
     this.player.update(delta);
+
+    // connection status indicator
+    if (this.statusText) {
+      this.statusText.setVisible(!net.isConnected());
+    }
 
     // Remove remote projectiles that go off screen (optional cleanup — server should remove expired ones)
     for (const [id, p] of Array.from(this.remoteProjectiles.entries())) {

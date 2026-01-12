@@ -78,3 +78,7 @@ export function onState(cb: (state: any) => void) {
     stateHandlers = stateHandlers.filter((h) => h !== cb);
   };
 }
+
+export function isConnected(): boolean {
+  return !!ws && ws.readyState === WebSocket.OPEN;
+}
