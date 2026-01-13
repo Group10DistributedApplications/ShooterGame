@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootergame.game.entity.PlayerState;
+import com.shootergame.game.entity.PowerupState;
 import com.shootergame.game.entity.ProjectileState;
 import com.shootergame.game.input.PlayerInput;
 import com.shootergame.util.TupleSpaces;
@@ -27,11 +28,22 @@ public class WorldState {
     private final String gameId;
     private final Map<Integer, PlayerState> players = new ConcurrentHashMap<>();
     private final Map<Integer, ProjectileState> projectiles = new ConcurrentHashMap<>();
+    private final Map<Integer, PowerupState> powerups = new ConcurrentHashMap<>();
     private volatile int nextProjectileId = 1;
+    private volatile int nextPowerupId = 1;
 
     public WorldState(Space space, String gameId) {
         this.space = space;
         this.gameId = gameId != null ? gameId : "default";
+        initializePowerups();
+    }
+    
+    private void initializePowerups() {
+        // Spawn powerups at strategic locations
+        powerups.put(nextPowerupId++, new PowerupState(1, 150.0, 200.0, "speed"));
+        powerups.put(nextPowerupId++, new PowerupState(2, 490.0, 200.0, "speed"));
+        powerups.put(nextPowerupId++, new PowerupState(3, 320.0, 350.0, "speed"));
+        logger.info("Initialized {} powerups", powerups.size());
     }
 
     /**
@@ -87,16 +99,49 @@ public class WorldState {
     public Map<Integer, ProjectileState> getProjectiles() {
         return projectiles;
     }
+    
+    public Map<Integer, PowerupState> getPowerups() {
+        return powerups;
+    }
 
     public ProjectileState spawnProjectile(PlayerState owner, double vx, double vy) {
         int projId = nextProjectileId++;
+        // Apply speed boost if player has powerup
+        if (owner.hasSpeedBoost) {
+            vx *= 1.5;
+            vy *= 1.5;
+        }
         ProjectileState proj = new ProjectileState(projId, owner.x, owner.y, vx, vy, owner.id);
         projectiles.put(projId, proj);
-        logger.debug("Spawned projectile id={} owner={} vx={} vy={}", projId, owner.id, vx, vy);
+        logger.debug("Spawned projectile id={} owner={} vx={} vy={} boosted={}", projId, owner.id, vx, vy, owner.hasSpeedBoost);
         return proj;
     }
 
     public void removeProjectile(int projId) {
         projectiles.remove(projId);
+    }
+    
+    /**
+     * Check for powerup collisions and apply effects.
+     */
+    public void checkPowerupCollisions() {
+        for (PlayerState player : players.values()) {
+            for (PowerupState powerup : powerups.values()) {
+                if (powerup.checkCollision(player.x, player.y)) {
+                    powerup.collect();
+                    player.applySpeedBoost();
+                    logger.info("Player {} collected powerup {} at ({}, {})", player.id, powerup.id, powerup.x, powerup.y);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Update all powerup timers.
+     */
+    public void updatePowerups(double dt) {
+        for (PowerupState powerup : powerups.values()) {
+            powerup.update(dt);
+        }
     }
 }

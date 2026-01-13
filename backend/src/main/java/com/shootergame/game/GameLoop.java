@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootergame.game.entity.PlayerState;
+import com.shootergame.game.entity.PowerupState;
 import com.shootergame.game.entity.ProjectileState;
 import com.shootergame.network.NetworkServer;
 import com.shootergame.util.JsonSerializer;
@@ -69,6 +70,12 @@ public class GameLoop {
                 for (PlayerState ps : world.getPlayers().values()) {
                     ps.update(dt);
                 }
+                
+                // Update powerups
+                world.updatePowerups(dt);
+                
+                // Check powerup collisions
+                world.checkPowerupCollisions();
 
                 // Handle firing requests
                 for (PlayerState ps : world.getPlayers().values()) {
@@ -177,7 +184,8 @@ public class GameLoop {
             Map<String, Object> state = Map.of(
                 "type", "state",
                 "players", world.getPlayers().values(),
-                "projectiles", world.getProjectiles().values()
+                "projectiles", world.getProjectiles().values(),
+                "powerups", world.getPowerups().values()
             );
             String json = serializer.toJson(state);
             logger.debug("Broadcasting state for game={}", gameId);

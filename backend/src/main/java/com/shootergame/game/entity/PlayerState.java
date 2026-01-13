@@ -17,9 +17,19 @@ public class PlayerState {
     public long lastTs = 0L;
     public boolean fireRequested = false;
     public String fireFacing = "";
+    
+    // Powerup state
+    public boolean hasSpeedBoost = false;
+    public double speedBoostTimer = 0.0;
+    private static final double SPEED_BOOST_DURATION = 15.0; // 15 seconds
 
     public PlayerState(int id) {
         this.id = id;
+    }
+    
+    public void applySpeedBoost() {
+        hasSpeedBoost = true;
+        speedBoostTimer = SPEED_BOOST_DURATION;
     }
 
     public void applyInput(String action) {
@@ -54,6 +64,15 @@ public class PlayerState {
     }
 
     public void update(double dt) {
+        // Update powerup timer
+        if (hasSpeedBoost) {
+            speedBoostTimer -= dt;
+            if (speedBoostTimer <= 0) {
+                hasSpeedBoost = false;
+                speedBoostTimer = 0.0;
+            }
+        }
+        
         double speed = 200.0;
         int dx = 0, dy = 0;
 
