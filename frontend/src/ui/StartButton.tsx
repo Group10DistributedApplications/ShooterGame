@@ -7,15 +7,29 @@ type Props = { targetEl?: HTMLElement | null };
 export default function StartButton({ targetEl }: Props) {
   const [connected, setConnected] = useState<boolean>(net.isConnected());
   const [registered, setRegistered] = useState<boolean>(false);
+  const [visible, setVisible] = useState<boolean>(true);
+  const [label, setLabel] = useState<string>("Start Game");
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     const unsubConn = net.onConnectionChange((c) => setConnected(c));
     const unsubReg = net.onRegistered(() => setRegistered(true));
+    const unsubGameOver = net.onGameOver(() => {
+      // show button again as "Play Again" when a match ends
+      setLabel("Play Again");
+      setVisible(true);
+    });
+    const unsubGameStart = net.onGameStart(() => {
+      // hide button when a game starts
+      setVisible(false);
+      setLabel("Start Game");
+    });
     return () => {
       try { unsubConn(); } catch (_) {}
       try { unsubReg(); } catch (_) {}
+      try { unsubGameOver(); } catch (_) {}
+      try { unsubGameStart(); } catch (_) {}
     };
   }, []);
 
@@ -23,6 +37,8 @@ export default function StartButton({ targetEl }: Props) {
     try { console.log("ui: Start button clicked (portal)"); } catch (_) {}
     try { console.log("ui: connected=", connected, "registered=", registered); } catch (_) {}
     net.sendStartGame();
+    // hide immediately after click until game_over
+    setVisible(false);
   }
 
   // Visual disabled state but keep clickable so we can trace behavior
@@ -35,9 +51,10 @@ export default function StartButton({ targetEl }: Props) {
         return;
       }
       const rect = targetEl.getBoundingClientRect();
-      const bw = btnRef.current.offsetWidth || 100;
-      const top = rect.top + 12;
-      const left = rect.left + rect.width - 12 - bw;
+      const bw = btnRef.current.offsetWidth || 140;
+      // bottom-center of the target element
+      const top = rect.top + rect.height - 56; // near bottom of game
+      const left = rect.left + Math.max(0, Math.round(rect.width / 2 - bw / 2));
       setPos({ top, left });
     }
     update();
@@ -48,10 +65,12 @@ export default function StartButton({ targetEl }: Props) {
     return () => { window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); obs.disconnect(); };
   }, [targetEl]);
 
+  if (!visible) return null;
+
   const btn = (
     <div style={{ ...portalWrapperStyle, top: pos ? pos.top : undefined, left: pos ? pos.left : undefined }}>
       <button ref={btnRef} onClick={handleStart} style={{ ...buttonStyle, opacity }}>
-        Start Game
+        {label}
       </button>
     </div>
   );
