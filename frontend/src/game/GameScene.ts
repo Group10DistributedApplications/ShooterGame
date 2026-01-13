@@ -24,6 +24,8 @@ const TILESET_WALLS_IMAGE = "assets/tilesets/" + TILESET_WALLS_KEY;
 const TILESET_FLOOR_IMAGE = "assets/tilesets/" + TILESET_FLOOR_KEY;
 const TILESET_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_OBJECTS_KEY;
 const TILESET_ALT_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_ALT_OBJECTS_KEY;
+// Zoom factor applied to camera to make the map appear larger on screen
+const MAP_ZOOM = 1.40;
 
 export default class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -96,6 +98,10 @@ export default class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, mapW, mapH);
     this.cameras.main.setBounds(0, 0, mapW, mapH);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
+    // Apply zoom to make the map and sprites appear larger; tweak MAP_ZOOM as needed
+    if (MAP_ZOOM && MAP_ZOOM !== 1) {
+      this.cameras.main.setZoom(MAP_ZOOM);
+    }
 
     // --- NETWORK SETUP ---
     // Do NOT auto-connect or auto-register here; Lobby controls connection.
