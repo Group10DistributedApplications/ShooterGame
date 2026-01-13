@@ -115,11 +115,13 @@ export function getLocalPlayerId(): number | null {
 // Wrap register to set the tracked id then send register message
 export function registerLocal(playerId: number, gameId?: string) {
   _localPlayerId = playerId;
+  try { console.log("network: registerLocal ->", playerId, gameId); } catch (_) {}
   register(playerId, gameId);
 }
 
 // Convenience helper to request game start (sends as an input action)
 export function sendStartGame(payload?: string) {
+  try { console.log("network: sendStartGame called, localId=", _localPlayerId, "payload=", payload); } catch (_) {}
   if (!_localPlayerId) return;
   sendInput(_localPlayerId, "START", payload || "");
 }
