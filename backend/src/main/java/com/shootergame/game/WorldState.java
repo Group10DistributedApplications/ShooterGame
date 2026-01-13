@@ -28,6 +28,8 @@ public class WorldState {
     private final Map<Integer, PlayerState> players = new ConcurrentHashMap<>();
     private final Map<Integer, ProjectileState> projectiles = new ConcurrentHashMap<>();
     private volatile int nextProjectileId = 1;
+    // whether a match is currently running for this world
+    private volatile boolean matchRunning = false;
 
     public WorldState(Space space, String gameId) {
         this.space = space;
@@ -82,6 +84,8 @@ public class WorldState {
 
                 i++;
             }
+            // mark match as running so GameLoop can apply win conditions
+            this.matchRunning = true;
             return;
         }
 
@@ -100,6 +104,14 @@ public class WorldState {
         }
 
         ps.lastTs = System.currentTimeMillis();
+    }
+
+    public boolean isMatchRunning() {
+        return matchRunning;
+    }
+
+    public void setMatchRunning(boolean running) {
+        this.matchRunning = running;
     }
 
     /**

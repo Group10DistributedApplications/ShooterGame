@@ -58,9 +58,9 @@ public class GameLoop {
             lastTick = now;
 
             // Run simulation for each world (game)
-            for (Map.Entry<String, WorldState> e : worlds.entrySet()) {
-                String gid = e.getKey();
-                WorldState world = e.getValue();
+            for (Map.Entry<String, WorldState> entry : worlds.entrySet()) {
+                String gid = entry.getKey();
+                WorldState world = entry.getValue();
 
                 // Sync registered players for this world
                 world.syncRegisteredPlayers();
@@ -94,6 +94,25 @@ public class GameLoop {
                         ProjectileState p = world.getProjectiles().get(id);
                         return p != null && (!p.isAlive() || p.isOutOfBounds());
                     });
+
+                // Check win condition: last player alive wins
+                try {
+                    int aliveCount = (int) world.getPlayers().values().stream().filter(PlayerState::isAlive).count();
+                    if (world.isMatchRunning() && aliveCount <= 1) {
+                        Integer winner = null;
+                        if (aliveCount == 1) {
+                            for (PlayerState p : world.getPlayers().values()) {
+                                if (p.isAlive()) { winner = p.id; break; }
+                            }
+                        }
+                        Map<String, Object> over = Map.of("type", "game_over", "winner", winner);
+                        String overJson = serializer.toJson(over);
+                        server.broadcastToGame(gid, overJson);
+                        world.setMatchRunning(false);
+                    }
+                } catch (Exception e) {
+                    logger.error("Error while evaluating win condition for game=" + gid, e);
+                }
 
                 // Broadcast state to clients in this game only
                 broadcastStateForGame(gid, world);
@@ -234,6 +253,17 @@ public class GameLoop {
 
     public void applyInput(String gameId, com.shootergame.game.input.PlayerInput input) {
         WorldState ws = worlds.computeIfAbsent(gameId, gid -> new WorldState(space, gid));
+        // If this is a START input, broadcast a game_start message so clients can reset UI
+        try {
+            if ("START".equals(input.action())) {
+                Map<String, Object> startMsg = Map.of("type", "game_start");
+                String startJson = serializer.toJson(startMsg);
+                server.broadcastToGame(gameId, startJson);
+            }
+        } catch (Exception ex) {
+            logger.debug("Failed to broadcast game_start", ex);
+        }
+
         ws.applyInput(input);
     }
 }

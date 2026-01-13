@@ -7,6 +7,8 @@ let sendQueue: string[] = [];
 let connectionHandlers: Array<(connected: boolean) => void> = [];
 let registeredHandlers: Array<(playerId: number) => void> = [];
 let errorHandlers: Array<(message: string) => void> = [];
+let gameOverHandlers: Array<(msg: any) => void> = [];
+let gameStartHandlers: Array<() => void> = [];
 
 export function connect(url = SERVER_URL) {
   if (ws) return;
@@ -32,6 +34,12 @@ export function connect(url = SERVER_URL) {
             break;
           case "registered":
             registeredHandlers.forEach((h) => h(data.playerId));
+            break;
+          case "game_over":
+            gameOverHandlers.forEach((h) => h(data));
+            break;
+          case "game_start":
+            gameStartHandlers.forEach((h) => h());
             break;
           case "error":
             errorHandlers.forEach((h) => h(data.message || ""));
@@ -127,6 +135,16 @@ export function onState(cb: (state: any) => void) {
   return () => {
     stateHandlers = stateHandlers.filter((h) => h !== cb);
   };
+}
+
+export function onGameOver(cb: (msg: any) => void) {
+  gameOverHandlers.push(cb);
+  return () => { gameOverHandlers = gameOverHandlers.filter(h => h !== cb); };
+}
+
+export function onGameStart(cb: () => void) {
+  gameStartHandlers.push(cb);
+  return () => { gameStartHandlers = gameStartHandlers.filter(h => h !== cb); };
 }
 
 export function onRegistered(cb: (playerId: number) => void) {
