@@ -212,6 +212,9 @@ public class GameLoop {
      */
     private void checkCollisions(WorldState world) {
         for (ProjectileState proj : world.getProjectiles().values()) {
+            if (!proj.isAlive()) {
+                continue; // already expired (e.g., hit a wall)
+            }
             for (PlayerState player : world.getPlayers().values()) {
                 // Don't collide with owner or if player is invulnerable
                 if (proj.owner == player.id || player.isInvulnerable()) {

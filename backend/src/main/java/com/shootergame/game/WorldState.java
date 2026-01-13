@@ -122,6 +122,7 @@ public class WorldState {
         int projId = nextProjectileId++;
         ProjectileState proj = new ProjectileState(projId, owner.x, owner.y, vx, vy, owner.id);
         proj.setBounds(collisionMap.getPixelWidth(), collisionMap.getPixelHeight(), 10.0);
+        proj.setCollisionMap(collisionMap);
         projectiles.put(projId, proj);
         logger.debug("Spawned projectile id={} owner={} vx={} vy={}", projId, owner.id, vx, vy);
         return proj;
