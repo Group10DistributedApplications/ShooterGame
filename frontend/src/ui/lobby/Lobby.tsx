@@ -33,9 +33,10 @@ function useRecentServers() {
   return { recent, add, remove };
 }
 
-type Props = { containerEl?: HTMLElement | null; maxPlayers?: number };
+type Props = { containerEl?: HTMLElement | null; maxPlayers?: number; visible?: boolean };
 
-export default function Lobby({ containerEl, maxPlayers }: Props = {}) {
+export default function Lobby({ containerEl, maxPlayers, visible = true }: Props = {}) {
+  if (!visible) return null;
   const { recent, add, remove } = useRecentServers();
   const [url, setUrl] = useState<string>(() => {
     try {

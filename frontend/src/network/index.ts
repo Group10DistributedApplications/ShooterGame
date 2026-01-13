@@ -9,6 +9,8 @@ let registeredHandlers: Array<(playerId: number) => void> = [];
 let errorHandlers: Array<(message: string) => void> = [];
 let gameOverHandlers: Array<(msg: any) => void> = [];
 let gameStartHandlers: Array<() => void> = [];
+// current registered player id (set when server sends 'registered')
+let currentRegisteredPlayerId: number | null = null;
 
 export function connect(url = SERVER_URL) {
   if (ws) return;
@@ -33,6 +35,7 @@ export function connect(url = SERVER_URL) {
             stateHandlers.forEach((h) => h(data));
             break;
           case "registered":
+            try { currentRegisteredPlayerId = data.playerId; } catch (_) { currentRegisteredPlayerId = null; }
             registeredHandlers.forEach((h) => h(data.playerId));
             break;
           case "game_over":
@@ -112,6 +115,14 @@ export function getLocalPlayerId(): number | null {
   return _localPlayerId;
 }
 
+export function isRegistered(): boolean {
+  return currentRegisteredPlayerId !== null;
+}
+
+export function getRegisteredPlayerId(): number | null {
+  return currentRegisteredPlayerId;
+}
+
 // Wrap register to set the tracked id then send register message
 export function registerLocal(playerId: number, gameId?: string) {
   _localPlayerId = playerId;
@@ -151,6 +162,10 @@ export function onGameStart(cb: () => void) {
 
 export function onRegistered(cb: (playerId: number) => void) {
   registeredHandlers.push(cb);
+  // invoke immediately if already registered
+  if (currentRegisteredPlayerId !== null) {
+    try { cb(currentRegisteredPlayerId); } catch (_) {}
+  }
   return () => { registeredHandlers = registeredHandlers.filter(h => h !== cb); };
 }
 
