@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import com.shootergame.game.entity.PlayerState;
 import com.shootergame.game.entity.ProjectileState;
 import com.shootergame.game.input.PlayerInput;
+import com.shootergame.game.map.CollisionMap;
 import com.shootergame.util.TupleSpaces;
 
 /**
@@ -28,12 +29,32 @@ public class WorldState {
     private final Map<Integer, PlayerState> players = new ConcurrentHashMap<>();
     private final Map<Integer, ProjectileState> projectiles = new ConcurrentHashMap<>();
     private volatile int nextProjectileId = 1;
+    private final CollisionMap collisionMap;
     // whether a match is currently running for this world
     private volatile boolean matchRunning = false;
 
     public WorldState(Space space, String gameId) {
         this.space = space;
         this.gameId = gameId != null ? gameId : "default";
+        this.collisionMap = loadCollisionMap();
+    }
+
+    private CollisionMap loadCollisionMap() {
+        try {
+            // Resolve repo root (backend runs with cwd=.../backend); climb one level if needed
+            java.nio.file.Path cwd = java.nio.file.Paths.get("").toAbsolutePath();
+            java.nio.file.Path repoRoot = cwd.getFileName().toString().equalsIgnoreCase("backend") ? cwd.getParent() : cwd;
+            // Uses the Map2 Tiled JSON from the frontend assets
+            java.nio.file.Path mapPath = repoRoot
+                .resolve("frontend").resolve("public").resolve("assets").resolve("maps").resolve("Map2.tmj");
+            return CollisionMap.fromTiled(mapPath, java.util.List.of("Walls", "Walls2", "Objects"));
+        } catch (Exception e) {
+            logger.warn("Failed to load collision map, defaulting to empty: {}", e.getMessage());
+            // Fallback: empty, default map size (70x60 @16px) so movement is not stuck
+            int w = 70, h = 60, t = 16;
+            boolean[][] empty = new boolean[h][w];
+            return new CollisionMap(w, h, t, t, empty);
+        }
     }
 
     /**
@@ -148,9 +169,15 @@ public class WorldState {
         return projectiles;
     }
 
+    public CollisionMap getCollisionMap() {
+        return collisionMap;
+    }
+
     public ProjectileState spawnProjectile(PlayerState owner, double vx, double vy) {
         int projId = nextProjectileId++;
         ProjectileState proj = new ProjectileState(projId, owner.x, owner.y, vx, vy, owner.id);
+        proj.setBounds(collisionMap.getPixelWidth(), collisionMap.getPixelHeight(), 10.0);
+        proj.setCollisionMap(collisionMap);
         projectiles.put(projId, proj);
         logger.debug("Spawned projectile id={} owner={} vx={} vy={}", projId, owner.id, vx, vy);
         return proj;
@@ -160,3 +187,4 @@ public class WorldState {
         projectiles.remove(projId);
     }
 }
+

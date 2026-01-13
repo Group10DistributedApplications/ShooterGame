@@ -6,18 +6,32 @@ import * as net from "../network";
 import Projectile from "./projectile/Projectile";
 import type { ProjectileConfig } from "./projectile/Projectile";
 
-// Map/tileset asset paths
-const MAP_KEY = "map1";
-const MAP_PATH = "assets/maps/Map1.tmj";
-const TILESET1_KEY = "TileA5_PHC_Interior-Hospital.png";
-const TILESET1_IMAGE = "assets/tilesets/TileA5_PHC_Interior-Hospital.png";
-const TILESET2_KEY = "TileA4_PHC_Interior-Hospital.png";
-const TILESET2_IMAGE = "assets/tilesets/TileA4_PHC_Interior-Hospital.png";
+// Map/tileset asset paths for Map2
+const MAP_KEY = "map2";
+const MAP_PATH = "assets/maps/Map2.tmj";
+
+const TILESET_WALLS_NAME = "Interior-Hospital Walls";
+const TILESET_FLOOR_NAME = "Interior-Hospital Floor";
+const TILESET_OBJECTS_NAME = "Interior-Hospital Objects";
+const TILESET_ALT_OBJECTS_NAME = "Interior-Hospital-Alt Objects";
+
+const TILESET_WALLS_KEY = "TileA4_PHC_Interior-Hospital.png";
+const TILESET_FLOOR_KEY = "TileA5_PHC_Interior-Hospital.png";
+const TILESET_OBJECTS_KEY = "TileB_PHC_Interior-Hospital.png";
+const TILESET_ALT_OBJECTS_KEY = "TileC_PHC_Interior-Hospital-Alt.png";
+
+const TILESET_WALLS_IMAGE = "assets/tilesets/" + TILESET_WALLS_KEY;
+const TILESET_FLOOR_IMAGE = "assets/tilesets/" + TILESET_FLOOR_KEY;
+const TILESET_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_OBJECTS_KEY;
+const TILESET_ALT_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_ALT_OBJECTS_KEY;
 
 export default class GameScene extends Phaser.Scene {
   private player!: Player;
   private inputManager!: InputManager;
   private wallsLayer!: Phaser.Tilemaps.TilemapLayer;
+  private wallsLayer2?: Phaser.Tilemaps.TilemapLayer;
+  private objectsLayer?: Phaser.Tilemaps.TilemapLayer;
+  private collisionLayers: Phaser.Tilemaps.TilemapLayer[] = [];
   
   private remotePlayers: Map<number, Player> = new Map();
   private localPlayerId: number = Math.floor(Math.random() * 9000) + 1000; // random 1000-9999
@@ -35,26 +49,45 @@ export default class GameScene extends Phaser.Scene {
   preload() {
     // Load map and tilesets
     this.load.tilemapTiledJSON(MAP_KEY, MAP_PATH);
-    this.load.image(TILESET1_KEY, "assets/tilesets/" + TILESET1_KEY);
-    this.load.image(TILESET2_KEY, "assets/tilesets/" + TILESET2_KEY);
+    this.load.image(TILESET_WALLS_KEY, TILESET_WALLS_IMAGE);
+    this.load.image(TILESET_FLOOR_KEY, TILESET_FLOOR_IMAGE);
+    this.load.image(TILESET_OBJECTS_KEY, TILESET_OBJECTS_IMAGE);
+    this.load.image(TILESET_ALT_OBJECTS_KEY, TILESET_ALT_OBJECTS_IMAGE);
   }
 
   create() {
     // --- MAP SETUP ---
     const map = this.make.tilemap({ key: MAP_KEY });
-    const tileset1 = map.addTilesetImage("Interior-Hospital floor", TILESET1_KEY);
-    const tileset2 = map.addTilesetImage("Interior-Hospital Walls", TILESET2_KEY);
-    if (!tileset1 || !tileset2) {
+    const tilesetWalls = map.addTilesetImage(TILESET_WALLS_NAME, TILESET_WALLS_KEY);
+    const tilesetFloor = map.addTilesetImage(TILESET_FLOOR_NAME, TILESET_FLOOR_KEY);
+    const tilesetObjects = map.addTilesetImage(TILESET_OBJECTS_NAME, TILESET_OBJECTS_KEY);
+    const tilesetAltObjects = map.addTilesetImage(TILESET_ALT_OBJECTS_NAME, TILESET_ALT_OBJECTS_KEY);
+    const tilesets = [tilesetWalls, tilesetFloor, tilesetObjects, tilesetAltObjects].filter(Boolean) as Phaser.Tilemaps.Tileset[];
+    if (tilesets.length < 2) {
       throw new Error("Tileset(s) not found. Check names in Tiled vs Phaser keys.");
     }
-    const groundLayer = map.createLayer("Ground", [tileset1, tileset2], 0, 0);
-    this.wallsLayer = map.createLayer("Walls", [tileset1, tileset2], 0, 0)!;
-    this.wallsLayer.setCollisionByExclusion([-1, 0]);
+
+    const groundLayer = map.createLayer("Floors", tilesets, 0, 0);
+    this.objectsLayer = map.createLayer("Objects", tilesets, 0, 0) || undefined;
+    this.wallsLayer = map.createLayer("Walls", tilesets, 0, 0)!;
+    this.wallsLayer2 = map.createLayer("Walls2", tilesets, 0, 0) || undefined;
+    this.collisionLayers = [this.wallsLayer, this.wallsLayer2, this.objectsLayer].filter(Boolean) as Phaser.Tilemaps.TilemapLayer[];
+    for (const layer of this.collisionLayers) {
+      // Use Tiled collision shapes if present; fallback to excluding empty tiles
+      if (typeof layer.setCollisionFromCollisionGroup === "function") {
+        layer.setCollisionFromCollisionGroup();
+      }
+      layer.setCollisionByExclusion([-1, 0]);
+    }
 
     // --- PLAYER SETUP ---
     this.player = new Player(this, 400, 300, 0x00ff00);
     // Enable target-chasing so player follows server position updates
     this.player.setManualControl(false);
+    // Local player collides with all solid layers (walls + pillars/objects)
+    for (const layer of this.collisionLayers) {
+      this.physics.add.collider(this.player.sprite, layer);
+    }
 
     // world & camera bounds match the map size
     const mapW = map.widthInPixels;
@@ -134,8 +167,10 @@ export default class GameScene extends Phaser.Scene {
       if (!rp) {
         rp = new Player(this, p.x || 0, p.y || 0, 0x0000ff, 30);
         this.remotePlayers.set(id, rp);
-        // Add collision for remote player
-        this.physics.add.collider(rp.sprite, this.wallsLayer);
+        // Add collision for remote player against all collidable layers
+        for (const layer of this.collisionLayers) {
+          this.physics.add.collider(rp.sprite, layer);
+        }
       }
       rp.setTarget(p.x || 0, p.y || 0);
       rp.setLives(p.lives !== undefined ? p.lives : 3);

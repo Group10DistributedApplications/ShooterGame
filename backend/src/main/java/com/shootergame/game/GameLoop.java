@@ -64,6 +64,13 @@ public class GameLoop {
 
                 // Sync registered players for this world
                 world.syncRegisteredPlayers();
+                // Ensure player bounds reflect map size
+                double mapW = world.getCollisionMap().getPixelWidth();
+                double mapH = world.getCollisionMap().getPixelHeight();
+                for (PlayerState ps : world.getPlayers().values()) {
+                    ps.setBounds(mapW, mapH, 30.0);
+                    ps.setCollisionMap(world.getCollisionMap());
+                }
 
             // Update all alive players
             for (PlayerState ps : world.getPlayers().values()) {
@@ -158,7 +165,8 @@ public class GameLoop {
         // Find the world that contains this player and spawn projectile there (best-effort)
         for (WorldState ws : worlds.values()) {
             if (ws.getPlayers().containsKey(ps.id)) {
-                ws.spawnProjectile(ps, vx, vy);
+                ProjectileState proj = ws.spawnProjectile(ps, vx, vy);
+                proj.setBounds(ws.getCollisionMap().getPixelWidth(), ws.getCollisionMap().getPixelHeight(), 10.0);
                 return;
             }
         }
@@ -223,6 +231,9 @@ public class GameLoop {
      */
     private void checkCollisions(WorldState world) {
         for (ProjectileState proj : world.getProjectiles().values()) {
+            if (!proj.isAlive()) {
+                continue; // already expired (e.g., hit a wall)
+            }
             for (PlayerState player : world.getPlayers().values()) {
                 // Don't collide with owner or if player is invulnerable
                 if (proj.owner == player.id || player.isInvulnerable()) {
