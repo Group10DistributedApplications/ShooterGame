@@ -47,7 +47,6 @@ export default function Hud({ targetEl }: Props = {}) {
   const content = (
     <>
       <div style={hudStyle} aria-hidden>
-        <div style={{ fontSize: 12, opacity: 0.8 }}>FPS: --</div>
         <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6 }}>
           {connected ? (gameId ? `Room: ${gameId}` : `Server: ${serverHostPort}`) : "Server: Disconnected"}
         </div>
