@@ -77,7 +77,7 @@ export default class GameScene extends Phaser.Scene {
       // on connect: if not yet registered, register now
       if (!this.registered && net.isConnected()) {
         try {
-          net.register(this.localPlayerId, net.getGameId());
+          net.registerLocal(this.localPlayerId, net.getGameId());
           this.registered = true;
         } catch (e) {
           // ignore
@@ -87,12 +87,12 @@ export default class GameScene extends Phaser.Scene {
 
     // attempt initial registration; if not connected yet, poll until connected
     if (net.isConnected()) {
-      try { net.register(this.localPlayerId, net.getGameId()); this.registered = true; } catch (e) { /* ignore */ }
+      try { net.registerLocal(this.localPlayerId, net.getGameId()); this.registered = true; } catch (e) { /* ignore */ }
     } else {
       this.connCheckId = window.setInterval(() => {
         try {
-          if (!this.registered && net.isConnected()) {
-            net.register(this.localPlayerId, net.getGameId());
+            if (!this.registered && net.isConnected()) {
+            net.registerLocal(this.localPlayerId, net.getGameId());
             this.registered = true;
             if (this.connCheckId) { clearInterval(this.connCheckId); this.connCheckId = null; }
           }

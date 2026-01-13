@@ -98,6 +98,24 @@ export function register(playerId: number, gameId?: string) {
   sendRaw(msg);
 }
 
+// Track last registered local player id so UI can send player-scoped commands
+let _localPlayerId: number | null = null;
+export function getLocalPlayerId(): number | null {
+  return _localPlayerId;
+}
+
+// Wrap register to set the tracked id then send register message
+export function registerLocal(playerId: number, gameId?: string) {
+  _localPlayerId = playerId;
+  register(playerId, gameId);
+}
+
+// Convenience helper to request game start (sends as an input action)
+export function sendStartGame(payload?: string) {
+  if (!_localPlayerId) return;
+  sendInput(_localPlayerId, "START", payload || "");
+}
+
 export function ping() {
   sendRaw(JSON.stringify({ type: "ping" }));
 }

@@ -42,9 +42,30 @@ public class WorldState {
         String action = input.action();
         String payload = input.payload();
 
+        // Support a global START action to (re)start the match for this world.
+        if ("START".equals(action)) {
+            // Ensure registered players are present
+            syncRegisteredPlayers();
+            // clear projectiles
+            projectiles.clear();
+            // reset players: lives, invulnerability and spawn positions
+            int i = 0;
+            for (PlayerState p : players.values()) {
+                p.lives = 3;
+                p.invulnerableTime = 2.0;
+                p.x = 100.0 + (i % 4) * 120.0;
+                p.y = 100.0 + (i / 4) * 80.0;
+                p.fireRequested = false;
+                p.fireFacing = "";
+                p.lastTs = System.currentTimeMillis();
+                i++;
+            }
+            return;
+        }
+
         PlayerState ps = players.computeIfAbsent(playerId, PlayerState::new);
 
-        // Ignore inputs from dead players
+        // Ignore inputs from dead players (except START which is handled above)
         if (!ps.isAlive()) {
             return;
         }
