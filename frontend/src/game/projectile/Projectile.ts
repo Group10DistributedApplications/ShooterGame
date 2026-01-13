@@ -9,14 +9,23 @@ export interface ProjectileConfig {
 }
 
 export default class Projectile {
-  public sprite: Phaser.GameObjects.Rectangle;
+  public sprite: Phaser.GameObjects.Sprite;
   public vx: number;
   public vy: number;
 
   constructor(scene: Phaser.Scene, config: ProjectileConfig) {
-    const width = (config.facing === "left" || config.facing === "right") ? 16 : 8;
-    const height = (config.facing === "up" || config.facing === "down") ? 16 : 8;
-    this.sprite = scene.add.rectangle(config.x, config.y, width, height, 0xffff00);
+    this.sprite = scene.add.sprite(config.x, config.y, "projectile");
+    this.sprite.setDisplaySize(16, 16);
+    
+    // Rotate sprite based on direction
+    if (config.facing === "left") {
+      this.sprite.setFlipX(true);
+    } else if (config.facing === "up") {
+      this.sprite.setAngle(-90);
+    } else if (config.facing === "down") {
+      this.sprite.setAngle(90);
+    }
+    
     this.vx = config.vx;
     this.vy = config.vy;
   }

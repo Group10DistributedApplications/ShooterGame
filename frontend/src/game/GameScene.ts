@@ -37,6 +37,13 @@ export default class GameScene extends Phaser.Scene {
     this.load.tilemapTiledJSON(MAP_KEY, MAP_PATH);
     this.load.image(TILESET1_KEY, "assets/tilesets/" + TILESET1_KEY);
     this.load.image(TILESET2_KEY, "assets/tilesets/" + TILESET2_KEY);
+    
+    // Load player sprites
+    this.load.image("player-green", "src/assets/sprites/Sprite_Green.png");
+    this.load.image("player-green-topdown", "src/assets/sprites/Sprite-Green-TopDown.png");
+    this.load.image("player-blue", "src/assets/sprites/Sprite-Blue.png");
+    this.load.image("player-blue-topdown", "src/assets/sprites/Sprite-Blue-TopDown.png");
+    this.load.image("projectile", "src/assets/sprites/Sprite-Projectile.png");
   }
 
   create() {
@@ -52,7 +59,7 @@ export default class GameScene extends Phaser.Scene {
     this.wallsLayer.setCollisionByExclusion([-1, 0]);
 
     // --- PLAYER SETUP ---
-    this.player = new Player(this, 400, 300, 0x00ff00);
+    this.player = new Player(this, 400, 300, "green");
     // Enable target-chasing so player follows server position updates
     this.player.setManualControl(false);
 
@@ -132,7 +139,7 @@ export default class GameScene extends Phaser.Scene {
 
       let rp = this.remotePlayers.get(id);
       if (!rp) {
-        rp = new Player(this, p.x || 0, p.y || 0, 0x0000ff, 30);
+        rp = new Player(this, p.x || 0, p.y || 0, "blue");
         this.remotePlayers.set(id, rp);
         // Add collision for remote player
         this.physics.add.collider(rp.sprite, this.wallsLayer);
@@ -187,7 +194,7 @@ export default class GameScene extends Phaser.Scene {
   update(time: number, delta: number) {
     // update local facing from input so FIRE uses correct heading
     const dir = this.inputManager.getDirection();
-    if (dir) this.player.facing = dir;
+    if (dir) this.player.updateFacing(dir);
     // Update remote projectiles (interpolate locally between server updates)
     for (const p of this.remoteProjectiles.values()) {
       p.sprite.x += p.vx * delta / 1000;

@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 
 export default class Player {
-  public sprite: Phaser.GameObjects.Rectangle;
+  public sprite: Phaser.GameObjects.Sprite;
   public facing: "up" | "down" | "left" | "right" = "up";
   public speed: number = 200;
   public lives: number = 3;
@@ -11,10 +11,18 @@ export default class Player {
   private livesText: Phaser.GameObjects.Text;
   private scene: Phaser.Scene;
   private manualControl: boolean = false;
+  private spriteHorizontal: string;
+  private spriteVertical: string;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, color = 0x00ff00, size = 30) {
+  constructor(scene: Phaser.Scene, x: number, y: number, spriteKey = "green", size = 32) {
     this.scene = scene;
-    this.sprite = scene.add.rectangle(x, y, size, size, color);
+    this.spriteHorizontal = `player-${spriteKey}`;
+    this.spriteVertical = `player-${spriteKey}-topdown`;
+    
+    // Create sprite (start with horizontal)
+    this.sprite = scene.add.sprite(x, y, this.spriteHorizontal);
+    this.sprite.setDisplaySize(size, size);
+    
     // Enable physics on the sprite
     scene.physics.add.existing(this.sprite);
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
@@ -74,6 +82,22 @@ export default class Player {
     }
   }
 
+  updateFacing(newFacing: "up" | "down" | "left" | "right") {
+    if (this.facing === newFacing) return;
+    this.facing = newFacing;
+    
+    // Switch between horizontal and vertical sprites
+    if (newFacing === "left" || newFacing === "right") {
+      this.sprite.setTexture(this.spriteHorizontal);
+      this.sprite.setFlipY(false);
+      this.sprite.setFlipX(newFacing === "left"); // FlipX = horizontal flip
+    } else {
+      this.sprite.setTexture(this.spriteVertical);
+      this.sprite.setFlipX(false);
+      this.sprite.setFlipY(newFacing === "down"); // FlipY = vertical flip
+    }
+  }
+
  
 
   // interpolate toward target each frame using velocity (respects collision)
@@ -85,6 +109,15 @@ export default class Player {
     const dx = this.targetX - this.sprite.x;
     const dy = this.targetY - this.sprite.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Update facing based on movement direction (even for small movements)
+    if (distance > 1) {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        this.updateFacing(dx > 0 ? "right" : "left");
+      } else {
+        this.updateFacing(dy > 0 ? "down" : "up");
+      }
+    }
     
     // Stop if very close to target
     if (distance < 3) {
