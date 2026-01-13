@@ -65,6 +65,11 @@ public class WorldState {
 
         PlayerState ps = players.computeIfAbsent(playerId, PlayerState::new);
 
+        // Ignore inputs from dead players
+        if (!ps.isAlive()) {
+            return;
+        }
+
         if ("FIRE".equals(action)) {
             ps.fireRequested = true;
             ps.fireFacing = payload != null ? payload : "";

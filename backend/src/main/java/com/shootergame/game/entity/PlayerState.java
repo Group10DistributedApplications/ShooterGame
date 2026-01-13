@@ -25,6 +25,8 @@ public class PlayerState {
     public void setCollisionMap(com.shootergame.game.map.CollisionMap collisionMap) {
         this.collisionMap = collisionMap;
     }
+    public int lives = 3;
+    public double invulnerableTime = 0.0; // seconds of invulnerability after being hit
 
     private boolean up = false;
     private boolean down = false;
@@ -102,6 +104,26 @@ public class PlayerState {
 
         x = nx;
         y = ny;
+
+        // Decrease invulnerability time
+        if (invulnerableTime > 0) {
+            invulnerableTime -= dt;
+        }
+    }
+
+    public void hit() {
+        if (invulnerableTime <= 0 && lives > 0) {
+            lives--;
+            invulnerableTime = 2.0; // 2 seconds of invulnerability after being hit
+        }
+    }
+
+    public boolean isInvulnerable() {
+        return invulnerableTime > 0;
+    }
+
+    public boolean isAlive() {
+        return lives > 0;
     }
 
     public boolean isUp() {
