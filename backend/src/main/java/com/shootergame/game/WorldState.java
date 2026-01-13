@@ -41,7 +41,7 @@ public class WorldState {
     private void initializePowerups() {
         // Spawn powerups at strategic locations
         powerups.put(nextPowerupId++, new PowerupState(1, 150.0, 200.0, "speed"));
-        powerups.put(nextPowerupId++, new PowerupState(2, 490.0, 200.0, "speed"));
+        powerups.put(nextPowerupId++, new PowerupState(2, 490.0, 200.0, "noCooldown"));
         powerups.put(nextPowerupId++, new PowerupState(3, 320.0, 350.0, "speed"));
         logger.info("Initialized {} powerups", powerups.size());
     }
@@ -129,10 +129,18 @@ public class WorldState {
             for (PowerupState powerup : powerups.values()) {
                 if (powerup.checkCollision(player.x, player.y)) {
                     powerup.collect();
-                    player.applySpeedBoost();
-                    logger.info("Player {} collected powerup {} at ({}, {})", player.id, powerup.id, powerup.x, powerup.y);
+                    applyPowerupEffect(player, powerup);
+                    logger.info("Player {} collected powerup {} (type={})", player.id, powerup.id, powerup.type);
                 }
             }
+        }
+    }
+    
+    private void applyPowerupEffect(PlayerState player, PowerupState powerup) {
+        if ("speed".equals(powerup.type)) {
+            player.applySpeedBoost();
+        } else if ("noCooldown".equals(powerup.type)) {
+            player.applyNoCooldownBoost();
         }
     }
     
@@ -142,6 +150,24 @@ public class WorldState {
     public void updatePowerups(double dt) {
         for (PowerupState powerup : powerups.values()) {
             powerup.update(dt);
+        }
+    }
+    
+    /**
+     * Check if a player can shoot (cooldown check).
+     */
+    public boolean canPlayerShoot(int playerId) {
+        PlayerState ps = players.get(playerId);
+        return ps != null && ps.canShoot();
+    }
+    
+    /**
+     * Apply shooting cooldown to a player after they fire.
+     */
+    public void applyShooting(int playerId) {
+        PlayerState ps = players.get(playerId);
+        if (ps != null) {
+            ps.applyShooting();
         }
     }
 }

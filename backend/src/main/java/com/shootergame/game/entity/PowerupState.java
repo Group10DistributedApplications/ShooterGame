@@ -18,7 +18,7 @@ public class PowerupState {
         this.id = id;
         this.x = x;
         this.y = y;
-        this.type = type;
+        this.type = type; // "speed" or "noCooldown"
     }
 
     public void collect() {

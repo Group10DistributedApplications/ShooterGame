@@ -79,8 +79,9 @@ public class GameLoop {
 
                 // Handle firing requests
                 for (PlayerState ps : world.getPlayers().values()) {
-                    if (ps.fireRequested) {
+                    if (ps.fireRequested && world.canPlayerShoot(ps.id)) {
                         handleFireForWorld(world, ps);
+                        world.applyShooting(ps.id);
                         ps.fireRequested = false;
                     }
                 }
