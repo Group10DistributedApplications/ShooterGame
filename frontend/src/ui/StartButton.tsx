@@ -51,9 +51,9 @@ export default function StartButton({ targetEl }: Props) {
         return;
       }
       const rect = targetEl.getBoundingClientRect();
-      const bw = btnRef.current.offsetWidth || 140;
-      // bottom-center of the target element
-      const top = rect.top + rect.height - 56; // near bottom of game
+      const bw = btnRef.current.offsetWidth || 160;
+      // bottom-center of the target element; nudge upward slightly
+      const top = rect.top + rect.height - 72; // moved up a bit
       const left = rect.left + Math.max(0, Math.round(rect.width / 2 - bw / 2));
       setPos({ top, left });
     }
@@ -90,12 +90,14 @@ const portalWrapperStyle: React.CSSProperties = {
 };
 
 const buttonStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 6,
+  padding: "10px 16px",
+  borderRadius: 8,
   border: "none",
   background: "#2d8cff",
   color: "#fff",
   cursor: "pointer",
+  fontSize: "16px",
+  minWidth: 160,
 };
 
 
