@@ -4,7 +4,7 @@ import Player from "./player/Player";
 import InputManager from "./input/InputManager";
 import * as net from "../network";
 import Projectile from "./projectile/Projectile";
-import type { ProjectileConfig } from "./projectile/Projectile";
+import Powerup from "./PowerUp/Powerup";
 
 // Map/tileset asset paths
 const MAP_KEY = "map1";
@@ -24,6 +24,7 @@ export default class GameScene extends Phaser.Scene {
   private debugText?: Phaser.GameObjects.Text;
   private statusText?: Phaser.GameObjects.Text;
   private remoteProjectiles: Map<number, Projectile> = new Map();
+  private powerups: Map<number, Powerup> = new Map();
   private unsubscribeState: (() => void) | null = null;
   private registered: boolean = false;
   private connCheckId: number | null = null;
@@ -125,6 +126,8 @@ export default class GameScene extends Phaser.Scene {
       if (id === this.localPlayerId) {
         // apply authoritative server state for local player
         this.player.setTarget(p.x || 0, p.y || 0);
+        this.player.hasSpeedBoost = p.hasSpeedBoost ?? false;
+        this.player.speedBoostTimer = p.speedBoostTimer ?? 0;
         continue;
       }
 
@@ -136,6 +139,8 @@ export default class GameScene extends Phaser.Scene {
         this.physics.add.collider(rp.sprite, this.wallsLayer);
       }
       rp.setTarget(p.x || 0, p.y || 0);
+      rp.hasSpeedBoost = p.hasSpeedBoost ?? false;
+      rp.speedBoostTimer = p.speedBoostTimer ?? 0;
     }
 
     // remove remote players not present anymore
@@ -169,10 +174,33 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
+    // handle server-authoritative powerups
+    const pwups: any[] = state.powerups || [];
+    const seenPowerups = new Set<number>();
+    for (const pu of pwups) {
+      const id = pu.id as number;
+      seenPowerups.add(id);
+      let powerup = this.powerups.get(id);
+      if (!powerup) {
+        powerup = Powerup.fromServer(this, pu);
+        this.powerups.set(id, powerup);
+      } else {
+        powerup.updateFromServer(pu);
+      }
+    }
+
+    // remove powerups not present anymore
+    for (const [id, powerup] of Array.from(this.powerups.entries())) {
+      if (!seenPowerups.has(id)) {
+        powerup.destroy();
+        this.powerups.delete(id);
+      }
+    }
+
     // update debug HUD
     if (this.debugText) {
       const lines = [] as string[];
-      lines.push(`local=${this.localPlayerId} players=${players.length} remotes=${this.remotePlayers.size} projectiles=${this.remoteProjectiles.size}`);
+      lines.push(`local=${this.localPlayerId} players=${players.length} remotes=${this.remotePlayers.size} projectiles=${this.remoteProjectiles.size} powerups=${this.powerups.size}`);
       for (const p of players) {
         lines.push(`${p.id}: x=${Number(p.x).toFixed(1)} y=${Number(p.y).toFixed(1)}`);
       }
@@ -188,6 +216,11 @@ export default class GameScene extends Phaser.Scene {
     for (const p of this.remoteProjectiles.values()) {
       p.sprite.x += p.vx * delta / 1000;
       p.sprite.y += p.vy * delta / 1000;
+    }
+
+    // Update powerups (animation)
+    for (const powerup of this.powerups.values()) {
+      powerup.update(delta);
     }
 
     // Update remote players

@@ -30,6 +30,10 @@ public class PlayerState {
     public boolean hasNoCooldown = false;
     public double noCooldownTimer = 0.0;
     private static final double NO_COOLDOWN_DURATION = 10.0; // 10 seconds
+    
+    public boolean hasSpreadShot = false;
+    public double spreadShotTimer = 0.0;
+    private static final double SPREAD_SHOT_DURATION = 12.0; // 12 seconds
 
     public PlayerState(int id) {
         this.id = id;
@@ -43,6 +47,11 @@ public class PlayerState {
     public void applyNoCooldownBoost() {
         hasNoCooldown = true;
         noCooldownTimer = NO_COOLDOWN_DURATION;
+    }
+    
+    public void applySpreadShotBoost() {
+        hasSpreadShot = true;
+        spreadShotTimer = SPREAD_SHOT_DURATION;
     }
     
     public boolean canShoot() {
@@ -107,7 +116,21 @@ public class PlayerState {
             }
         }
         
+        if (hasSpreadShot) {
+            spreadShotTimer -= dt;
+            if (spreadShotTimer <= 0) {
+                hasSpreadShot = false;
+                spreadShotTimer = 0.0;
+            }
+        }
+        
         double speed = 200.0;
+        
+        // Apply speed boost if active
+        if (hasSpeedBoost) {
+            speed *= 1.5; // 50% faster movement
+        }
+        
         int dx = 0, dy = 0;
 
         if (up)

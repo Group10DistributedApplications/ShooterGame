@@ -42,7 +42,7 @@ public class WorldState {
         // Spawn powerups at strategic locations
         powerups.put(nextPowerupId++, new PowerupState(1, 150.0, 200.0, "speed"));
         powerups.put(nextPowerupId++, new PowerupState(2, 490.0, 200.0, "noCooldown"));
-        powerups.put(nextPowerupId++, new PowerupState(3, 320.0, 350.0, "speed"));
+        powerups.put(nextPowerupId++, new PowerupState(3, 320.0, 350.0, "spreadShot"));
         logger.info("Initialized {} powerups", powerups.size());
     }
 
@@ -106,14 +106,9 @@ public class WorldState {
 
     public ProjectileState spawnProjectile(PlayerState owner, double vx, double vy) {
         int projId = nextProjectileId++;
-        // Apply speed boost if player has powerup
-        if (owner.hasSpeedBoost) {
-            vx *= 1.5;
-            vy *= 1.5;
-        }
         ProjectileState proj = new ProjectileState(projId, owner.x, owner.y, vx, vy, owner.id);
         projectiles.put(projId, proj);
-        logger.debug("Spawned projectile id={} owner={} vx={} vy={} boosted={}", projId, owner.id, vx, vy, owner.hasSpeedBoost);
+        logger.debug("Spawned projectile id={} owner={} vx={} vy={}", projId, owner.id, vx, vy);
         return proj;
     }
 
@@ -141,6 +136,8 @@ public class WorldState {
             player.applySpeedBoost();
         } else if ("noCooldown".equals(powerup.type)) {
             player.applyNoCooldownBoost();
+        } else if ("spreadShot".equals(powerup.type)) {
+            player.applySpreadShotBoost();
         }
     }
     

@@ -177,7 +177,24 @@ public class GameLoop {
                 break;
         }
 
+        // Spawn main projectile
         world.spawnProjectile(ps, vx, vy);
+        
+        // If spread shot is active, spawn additional projectiles at angles
+        if (ps.hasSpreadShot) {
+            double angle = Math.atan2(vy, vx);
+            double spreadAngle = Math.PI / 6; // 30 degrees
+            
+            // Left projectile
+            double vxLeft = speed * Math.cos(angle - spreadAngle);
+            double vyLeft = speed * Math.sin(angle - spreadAngle);
+            world.spawnProjectile(ps, vxLeft, vyLeft);
+            
+            // Right projectile
+            double vxRight = speed * Math.cos(angle + spreadAngle);
+            double vyRight = speed * Math.sin(angle + spreadAngle);
+            world.spawnProjectile(ps, vxRight, vyRight);
+        }
     }
 
     private void broadcastStateForGame(String gameId, WorldState world) {
