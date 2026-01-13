@@ -25,7 +25,7 @@ const TILESET_FLOOR_IMAGE = "assets/tilesets/" + TILESET_FLOOR_KEY;
 const TILESET_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_OBJECTS_KEY;
 const TILESET_ALT_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_ALT_OBJECTS_KEY;
 // Zoom factor applied to camera to make the map appear larger on screen
-const MAP_ZOOM = 1.40;
+const MAP_ZOOM: number = 1.40;
 
 export default class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -70,7 +70,7 @@ export default class GameScene extends Phaser.Scene {
       throw new Error("Tileset(s) not found. Check names in Tiled vs Phaser keys.");
     }
 
-    const groundLayer = map.createLayer("Floors", tilesets, 0, 0);
+    map.createLayer("Floors", tilesets, 0, 0);
     this.objectsLayer = map.createLayer("Objects", tilesets, 0, 0) || undefined;
     this.wallsLayer = map.createLayer("Walls", tilesets, 0, 0)!;
     this.wallsLayer2 = map.createLayer("Walls2", tilesets, 0, 0) || undefined;
@@ -253,7 +253,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  update(time: number, delta: number) {
+  update(_time: number, delta: number) {
     // update local facing from input so FIRE uses correct heading
     const dir = this.inputManager.getDirection();
     if (dir) this.player.facing = dir;
