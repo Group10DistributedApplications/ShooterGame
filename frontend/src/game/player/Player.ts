@@ -4,6 +4,9 @@ export default class Player {
   public sprite: Phaser.GameObjects.Rectangle;
   public facing: "up" | "down" | "left" | "right" = "up";
   public speed: number = 200;
+  public hasSpeedBoost: boolean = false;
+  public speedBoostTimer: number = 0;
+  private baseMaxVelocity: number = 400;
   public lives: number = 3;
   public invulnerable: boolean = false;
   private targetX: number | null = null;
@@ -22,7 +25,7 @@ export default class Player {
     // Shrink the body so it does not snag on wall corners
     body.setSize(size * 0.7, size * 0.7);
     body.setOffset((size - size * 0.7) / 2, (size - size * 0.7) / 2);
-    body.setMaxVelocity(500, 500);
+    body.setMaxVelocity(this.baseMaxVelocity, this.baseMaxVelocity);
     this.targetX = x;
     this.targetY = y;
     
@@ -101,11 +104,18 @@ export default class Player {
     }
     
     // Move using velocity (physics handles collision)
-    const speed = Math.min(distance * 8, 400);
+    // Apply speed boost multiplier if active
+    const maxSpeed = this.hasSpeedBoost ? 400 * 1.5 : 400;
+    const speed = Math.min(distance * 8, maxSpeed);
     body.setVelocity(
       (dx / distance) * speed,
       (dy / distance) * speed
     );
+    
+    // Update max velocity for physics engine
+    const maxVel = this.hasSpeedBoost ? this.baseMaxVelocity * 1.5 : this.baseMaxVelocity;
+    body.setMaxVelocity(maxVel, maxVel);
+    
     this.livesText.setPosition(this.sprite.x, this.sprite.y - 25);
     
     // Flashing effect when invulnerable

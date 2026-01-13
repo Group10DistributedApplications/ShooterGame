@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.shootergame.game.entity.PlayerState;
+import com.shootergame.game.entity.PowerupState;
 import com.shootergame.game.entity.ProjectileState;
 import com.shootergame.game.input.PlayerInput;
 import com.shootergame.game.map.CollisionMap;
@@ -28,7 +29,9 @@ public class WorldState {
     private final String gameId;
     private final Map<Integer, PlayerState> players = new ConcurrentHashMap<>();
     private final Map<Integer, ProjectileState> projectiles = new ConcurrentHashMap<>();
+    private final Map<Integer, PowerupState> powerups = new ConcurrentHashMap<>();
     private volatile int nextProjectileId = 1;
+    private volatile int nextPowerupId = 1;
     private final CollisionMap collisionMap;
     // whether a match is currently running for this world
     private volatile boolean matchRunning = false;
@@ -37,6 +40,16 @@ public class WorldState {
         this.space = space;
         this.gameId = gameId != null ? gameId : "default";
         this.collisionMap = loadCollisionMap();
+        initializePowerups();
+    }
+    
+    private void initializePowerups() {
+        // Spawn powerups at strategic locations
+        powerups.put(nextPowerupId++, new PowerupState(1, 150.0, 200.0, "speed"));
+        powerups.put(nextPowerupId++, new PowerupState(2, 490.0, 200.0, "noCooldown"));
+        powerups.put(nextPowerupId++, new PowerupState(3, 320.0, 350.0, "spreadShot"));
+        logger.info("Initialized {} powerups", powerups.size());
+
     }
 
     private CollisionMap loadCollisionMap() {
@@ -167,6 +180,10 @@ public class WorldState {
     public Map<Integer, ProjectileState> getProjectiles() {
         return projectiles;
     }
+    
+    public Map<Integer, PowerupState> getPowerups() {
+        return powerups;
+    }
 
     public CollisionMap getCollisionMap() {
         return collisionMap;
@@ -185,5 +202,55 @@ public class WorldState {
     public void removeProjectile(int projId) {
         projectiles.remove(projId);
     }
+     /**
+     * Check for powerup collisions and apply effects.
+     */
+    public void checkPowerupCollisions() {
+        for (PlayerState player : players.values()) {
+            for (PowerupState powerup : powerups.values()) {
+                if (powerup.checkCollision(player.x, player.y)) {
+                    powerup.collect();
+                    applyPowerupEffect(player, powerup);
+                    logger.info("Player {} collected powerup {} (type={})", player.id, powerup.id, powerup.type);
+                }
+            }
+        }
+    }
+    
+    private void applyPowerupEffect(PlayerState player, PowerupState powerup) {
+        if ("speed".equals(powerup.type)) {
+            player.applySpeedBoost();
+        } else if ("noCooldown".equals(powerup.type)) {
+            player.applyNoCooldownBoost();
+        } else if ("spreadShot".equals(powerup.type)) {
+            player.applySpreadShotBoost();
+        }
+    }
+    
+    /**
+     * Update all powerup timers.
+     */
+    public void updatePowerups(double dt) {
+        for (PowerupState powerup : powerups.values()) {
+            powerup.update(dt);
+        }
+    }
+    
+    /**
+     * Check if a player can shoot (cooldown check).
+     */
+    public boolean canPlayerShoot(int playerId) {
+        PlayerState ps = players.get(playerId);
+        return ps != null && ps.canShoot();
+    }
+    
+    /**
+     * Apply shooting cooldown to a player after they fire.
+     */
+    public void applyShooting(int playerId) {
+        PlayerState ps = players.get(playerId);
+        if (ps != null) {
+            ps.applyShooting();
+        }
+    }
 }
-
