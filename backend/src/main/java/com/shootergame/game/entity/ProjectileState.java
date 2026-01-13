@@ -1,6 +1,16 @@
 package com.shootergame.game.entity;
 
 public class ProjectileState {
+    // Map bounds are provided by the collision map
+    private double mapWidth = 1120.0;
+    private double mapHeight = 960.0;
+    private double margin = 10.0; // allow projectiles a small grace beyond walls
+
+    public void setBounds(double width, double height, double margin) {
+        this.mapWidth = width;
+        this.mapHeight = height;
+        this.margin = margin;
+    }
     public final int id;
     public final int owner;
     public double x;
@@ -29,6 +39,6 @@ public class ProjectileState {
     }
 
     public boolean isOutOfBounds() {
-        return x < 30 || x > 610 || y < 76 || y > 450;
+        return x < margin || x > mapWidth - margin || y < margin || y > mapHeight - margin;
     }
 }
