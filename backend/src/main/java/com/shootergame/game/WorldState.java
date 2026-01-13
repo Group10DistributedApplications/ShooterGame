@@ -75,7 +75,6 @@ public class WorldState {
             int i = 0;
             for (PlayerState p : players.values()) {
                 p.lives = 3;
-                p.invulnerableTime = 2.0;
                 p.fireRequested = false;
                 p.fireFacing = "";
                 p.lastTs = System.currentTimeMillis();

@@ -114,7 +114,7 @@ public class PlayerState {
     public void hit() {
         if (invulnerableTime <= 0 && lives > 0) {
             lives--;
-            invulnerableTime = 2.0; // 2 seconds of invulnerability after being hit
+            invulnerableTime = 0.5; // 0.5 seconds of invulnerability after being hit
         }
     }
 
