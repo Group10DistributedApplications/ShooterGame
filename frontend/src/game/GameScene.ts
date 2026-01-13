@@ -113,6 +113,14 @@ export default class GameScene extends Phaser.Scene {
       let rp = this.remoteProjectiles.get(id);
       if (!rp) {
         rp = Projectile.fromServer(this, pr);
+        const ownerId = pr.ownerId ?? pr.playerId ?? pr.owner;
+        if (ownerId !== undefined) {
+          const oid = Number(ownerId);
+          const ownerPlayer = oid === this.localPlayerId ? this.player : this.remotePlayers.get(oid);
+          if (ownerPlayer && (ownerPlayer as any).color !== undefined) {
+            rp.setColor((ownerPlayer as any).color);
+          }
+        }
         this.remoteProjectiles.set(id, rp);
       } else {
         rp.updateFromServer(pr);

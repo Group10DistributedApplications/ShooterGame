@@ -2,18 +2,21 @@ import Phaser from "phaser";
 
 export default class Player {
   public sprite: Phaser.GameObjects.Rectangle;
+  public color: number = 0xffffff;
   public facing: "up" | "down" | "left" | "right" = "up";
   public speed: number = 200;
   private targetX: number | null = null;
   private targetY: number | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, color: number = 0xffffff, size = 30) {
+    this.color = color;
     this.sprite = scene.add.rectangle(x, y, size, size, color);
     this.targetX = x;
     this.targetY = y;
   }
 
   setColor(color: number) {
+    this.color = color;
     if (!this.sprite) return;
     if ((this.sprite as any).setFillStyle) {
       (this.sprite as any).setFillStyle(color);

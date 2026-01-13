@@ -21,6 +21,8 @@ export default class Projectile {
     this.vy = config.vy;
   }
 
+
+
   static fromServer(scene: Phaser.Scene, data: any): Projectile {
     const facing = Math.abs(data.vx) > Math.abs(data.vy) ? (data.vx < 0 ? "left" : "right") : (data.vy < 0 ? "up" : "down");
     const cfg: ProjectileConfig = { x: data.x || 0, y: data.y || 0, vx: data.vx || 0, vy: data.vy || 0, facing };
@@ -32,6 +34,15 @@ export default class Projectile {
     this.vy = data.vy || 0;
     this.sprite.x = data.x || 0;
     this.sprite.y = data.y || 0;
+  }
+
+  setColor(color: number) {
+    if (!this.sprite) return;
+    if ((this.sprite as any).setFillStyle) {
+      (this.sprite as any).setFillStyle(color);
+      return;
+    }
+    try { (this.sprite as any).setTint(color); } catch {}
   }
 
   destroy() {
