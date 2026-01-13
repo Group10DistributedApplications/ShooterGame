@@ -51,6 +51,17 @@ export default class InputManager {
     return null;
   }
 
+  // Returns raw axis input so diagonals are preserved
+  getAxes(): { x: number; y: number } {
+    let x = 0;
+    let y = 0;
+    if (this.cursors.left.isDown) x -= 1;
+    if (this.cursors.right.isDown) x += 1;
+    if (this.cursors.up.isDown) y -= 1;
+    if (this.cursors.down.isDown) y += 1;
+    return { x, y };
+  }
+
   isSpacePressed(): boolean {
     return this.cursors.space.isDown;
   }

@@ -12,11 +12,12 @@ export function startGame(parent: HTMLElement) {
     height: 600,
     parent,
     backgroundColor: "#1e1e1e",
-
-    // disable physics for now
     physics: {
       default: "arcade",
-      arcade: { debug: false }
+      arcade: { 
+        debug: false,
+        gravity: { x: 0, y: 0 }
+      }
     },
 
     scene: [GameScene],

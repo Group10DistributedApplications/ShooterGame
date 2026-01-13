@@ -28,14 +28,13 @@ public class Main {
         // Start network server
         NetworkServer server = new NetworkServer(new InetSocketAddress("0.0.0.0", 3000), space);
         server.start();
-        logger.info("Server listening on :3000");
 
         // Start game loop and world state
         GameLoop gameLoop = new GameLoop(space, server);
         gameLoop.start();
 
         // Start input consumer (blocking operation in separate thread)
-        InputConsumer inputConsumer = new InputConsumer(space, gameLoop.getWorldState());
+        InputConsumer inputConsumer = new InputConsumer(space, gameLoop);
         inputConsumer.start();
 
         // Start console input handler

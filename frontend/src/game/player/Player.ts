@@ -10,10 +10,19 @@ export default class Player {
   private targetY: number | null = null;
   private livesText: Phaser.GameObjects.Text;
   private scene: Phaser.Scene;
+  private manualControl: boolean = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, color = 0x00ff00, size = 30) {
     this.scene = scene;
     this.sprite = scene.add.rectangle(x, y, size, size, color);
+    // Enable physics on the sprite
+    scene.physics.add.existing(this.sprite);
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body;
+    body.setCollideWorldBounds(true);
+    // Shrink the body so it does not snag on wall corners
+    body.setSize(size * 0.7, size * 0.7);
+    body.setOffset((size - size * 0.7) / 2, (size - size * 0.7) / 2);
+    body.setMaxVelocity(500, 500);
     this.targetX = x;
     this.targetY = y;
     
@@ -24,6 +33,11 @@ export default class Player {
       stroke: "#000000",
       strokeThickness: 2
     }).setOrigin(0.5);
+  }
+
+  // Allows caller to bypass target chasing and drive velocity manually.
+  setManualControl(enabled: boolean) {
+    this.manualControl = enabled;
   }
 
   setPosition(x: number, y: number) {
@@ -60,12 +74,38 @@ export default class Player {
     }
   }
 
-  // interpolate toward target each frame; delta in ms
+ 
+
+  // interpolate toward target each frame using velocity (respects collision)
   update(delta: number) {
+    if (this.manualControl) return;
     if (this.targetX === null || this.targetY === null) return;
-    const t = Math.min(1, 10 * (delta / 1000));
-    this.sprite.x = this.sprite.x + (this.targetX - this.sprite.x) * t;
-    this.sprite.y = this.sprite.y + (this.targetY - this.sprite.y) * t;
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body;
+    
+    const dx = this.targetX - this.sprite.x;
+    const dy = this.targetY - this.sprite.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Stop if very close to target
+    if (distance < 3) {
+      body.setVelocity(0, 0);
+      return;
+    }
+
+    // If we are pushing into a wall, stop and reset the target to avoid damping jitter
+    if (body.blocked.none === false || body.wasTouching.none === false) {
+      body.setVelocity(0, 0);
+      this.targetX = this.sprite.x;
+      this.targetY = this.sprite.y;
+      return;
+    }
+    
+    // Move using velocity (physics handles collision)
+    const speed = Math.min(distance * 8, 400);
+    body.setVelocity(
+      (dx / distance) * speed,
+      (dy / distance) * speed
+    );
     this.livesText.setPosition(this.sprite.x, this.sprite.y - 25);
     
     // Flashing effect when invulnerable

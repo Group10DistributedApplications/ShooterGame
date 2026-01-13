@@ -68,8 +68,15 @@ public class PlayerState {
         if (right)
             dx += 1;
 
-        x += dx * speed * dt;
-        y += dy * speed * dt;
+        double nx = x + dx * speed * dt;
+        double ny = y + dy * speed * dt;
+
+        // Clamp to world bounds (keep margin inside walls, avoid table area at top)
+        nx = Math.max(30.0, Math.min(610.0, nx));
+        ny = Math.max(76.0, Math.min(450.0, ny));
+
+        x = nx;
+        y = ny;
 
         // Decrease invulnerability time
         if (invulnerableTime > 0) {

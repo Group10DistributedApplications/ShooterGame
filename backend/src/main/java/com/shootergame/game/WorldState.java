@@ -24,12 +24,14 @@ public class WorldState {
     private static final Logger logger = LoggerFactory.getLogger(WorldState.class);
 
     private final Space space;
+    private final String gameId;
     private final Map<Integer, PlayerState> players = new ConcurrentHashMap<>();
     private final Map<Integer, ProjectileState> projectiles = new ConcurrentHashMap<>();
     private volatile int nextProjectileId = 1;
 
-    public WorldState(Space space) {
+    public WorldState(Space space, String gameId) {
         this.space = space;
+        this.gameId = gameId != null ? gameId : "default";
     }
 
     /**
@@ -62,15 +64,20 @@ public class WorldState {
      */
     public void syncRegisteredPlayers() {
         try {
-            List<Object[]> regs = TupleSpaces.queryAllPlayers(space);
+            List<Object[]> regs = TupleSpaces.queryAllPlayers(space, gameId);
+            java.util.Set<Integer> registered = new java.util.HashSet<>();
             if (regs != null) {
                 for (Object[] r : regs) {
                     if (r.length >= 2 && r[1] instanceof Number) {
                         int pid = ((Number) r[1]).intValue();
+                        registered.add(pid);
                         players.computeIfAbsent(pid, PlayerState::new);
                     }
                 }
             }
+
+            // Remove players that are no longer registered
+            players.keySet().removeIf(id -> !registered.contains(id));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (Exception e) {
