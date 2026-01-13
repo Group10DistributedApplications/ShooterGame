@@ -25,6 +25,13 @@ const TILESET_FLOOR_IMAGE = "assets/tilesets/" + TILESET_FLOOR_KEY;
 const TILESET_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_OBJECTS_KEY;
 const TILESET_ALT_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_ALT_OBJECTS_KEY;
 
+const PLAYER_COLORS = [
+  0xff0000, // player 1 red
+  0x00ff00, // player 2 green
+  0x0000ff, // player 3 blue
+  0xff00ff, // player 4 purple
+]
+
 export default class GameScene extends Phaser.Scene {
   private player!: Player;
   private inputManager!: InputManager;
@@ -81,7 +88,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // --- PLAYER SETUP ---
-    this.player = new Player(this, 400, 300, 0x00ff00);
+    this.player = new Player(this, 400, 300);
     // Enable target-chasing so player follows server position updates
     this.player.setManualControl(false);
     // Local player collides with all solid layers (walls + pillars/objects)
@@ -152,12 +159,22 @@ export default class GameScene extends Phaser.Scene {
   private handleState(state: any) {
     const players: any[] = state.players || [];
     const seen = new Set<number>();
+    let playerIndex = 0;
     for (const p of players) {
       const id = p.id as number;
       seen.add(id);
+
+      const color = PLAYER_COLORS[playerIndex % PLAYER_COLORS.length];
+      playerIndex++;
+
       if (id === this.localPlayerId) {
         // apply authoritative server state for local player
         this.player.setTarget(p.x || 0, p.y || 0);
+        if (this.player.sprite && (this.player.sprite as any).setTint) {
+          (this.player.sprite as any).setTint(color);
+        }
+        this.player.setColor(color);
+        this.player.setColor(color);
         this.player.setLives(p.lives !== undefined ? p.lives : 3);
         this.player.setInvulnerable(p.invulnerableTime > 0);
         continue;
@@ -165,12 +182,14 @@ export default class GameScene extends Phaser.Scene {
 
       let rp = this.remotePlayers.get(id);
       if (!rp) {
-        rp = new Player(this, p.x || 0, p.y || 0, 0x0000ff, 30);
+        rp = new Player(this, p.x || 0, p.y || 0, color, 30);
         this.remotePlayers.set(id, rp);
         // Add collision for remote player against all collidable layers
         for (const layer of this.collisionLayers) {
           this.physics.add.collider(rp.sprite, layer);
-        }
+        } 
+      } else {
+          rp.setColor(color);
       }
       rp.setTarget(p.x || 0, p.y || 0);
       rp.setLives(p.lives !== undefined ? p.lives : 3);
@@ -194,6 +213,14 @@ export default class GameScene extends Phaser.Scene {
       let rp = this.remoteProjectiles.get(id);
       if (!rp) {
         rp = Projectile.fromServer(this, pr);
+        const ownerId = pr.ownerId ?? pr.playerId ?? pr.owner;
+        if (ownerId !== undefined) {
+          const oid = Number(ownerId);
+          const ownerPlayer = oid === this.localPlayerId ? this.player : this.remotePlayers.get(oid);
+          if (ownerPlayer && (ownerPlayer as any).color !== undefined) {
+            rp.setColor((ownerPlayer as any).color);
+          }
+        }
         this.remoteProjectiles.set(id, rp);
       } else {
         rp.updateFromServer(pr);

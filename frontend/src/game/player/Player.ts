@@ -6,14 +6,16 @@ export default class Player {
   public speed: number = 200;
   public lives: number = 3;
   public invulnerable: boolean = false;
+  public color: number = 0xffffff;
   private targetX: number | null = null;
   private targetY: number | null = null;
   private livesText: Phaser.GameObjects.Text;
   private scene: Phaser.Scene;
   private manualControl: boolean = false;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, color = 0x00ff00, size = 30) {
+  constructor(scene: Phaser.Scene, x: number, y: number, color: number = 0xffffff, size = 30) {
     this.scene = scene;
+    this.color = color;
     this.sprite = scene.add.rectangle(x, y, size, size, color);
     // Enable physics on the sprite
     scene.physics.add.existing(this.sprite);
@@ -35,6 +37,20 @@ export default class Player {
     }).setOrigin(0.5);
   }
 
+  setColor(color: number) {
+    this.color = color;
+    if (!this.sprite) return;
+    if ((this.sprite as any).setFillStyle) {
+      (this.sprite as any).setFillStyle(color);
+      return;
+    }
+    try {
+      (this.sprite as any).tint = color;
+    } catch (e) {
+      // ignore
+    }
+  }
+  
   // Allows caller to bypass target chasing and drive velocity manually.
   setManualControl(enabled: boolean) {
     this.manualControl = enabled;

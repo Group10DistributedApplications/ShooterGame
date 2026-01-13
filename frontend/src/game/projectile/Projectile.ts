@@ -34,6 +34,15 @@ export default class Projectile {
     this.sprite.y = data.y || 0;
   }
 
+  setColor(color: number) {
+    if (!this.sprite) return;
+    if ((this.sprite as any).setFillStyle) {
+      (this.sprite as any).setFillStyle(color);
+      return;
+    }
+    try { (this.sprite as any).setTint(color); } catch {}
+  }
+
   destroy() {
     this.sprite.destroy();
   }
