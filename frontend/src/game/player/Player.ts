@@ -12,11 +12,9 @@ export default class Player {
   private targetX: number | null = null;
   private targetY: number | null = null;
   private livesText: Phaser.GameObjects.Text;
-  private scene: Phaser.Scene;
   private manualControl: boolean = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number, color = 0x00ff00, size = 30) {
-    this.scene = scene;
     this.sprite = scene.add.rectangle(x, y, size, size, color);
     // Enable physics on the sprite
     scene.physics.add.existing(this.sprite);
@@ -47,11 +45,35 @@ export default class Player {
     this.sprite.x = x;
     this.sprite.y = y;
     this.livesText.setPosition(x, y - 25);
+    const body = this.sprite.body as Phaser.Physics.Arcade.Body | undefined;
+    if (body) {
+      body.reset(x, y);
+      body.setVelocity(0, 0);
+    }
+    // Update internal target so movement logic doesn't immediately override teleport
+    this.targetX = x;
+    this.targetY = y;
   }
 
   setTarget(x: number, y: number) {
     this.targetX = x;
     this.targetY = y;
+  }
+
+  reconcileServerPosition(serverX: number, serverY: number, teleportThreshold: number, smoothThreshold: number) {
+    const dx = serverX - this.x;
+    const dy = serverY - this.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist <= teleportThreshold) {
+      this.setTarget(serverX, serverY);
+      return { action: "target" as const, dist };
+    }
+    if (dist <= smoothThreshold) {
+      return { action: "smooth" as const, dist };
+    }
+    // large mismatch: immediate teleport
+    this.setPosition(serverX, serverY);
+    return { action: "teleport" as const, dist };
   }
 
   setLives(lives: number) {
@@ -80,7 +102,7 @@ export default class Player {
  
 
   // interpolate toward target each frame using velocity (respects collision)
-  update(delta: number) {
+  update(_delta: number) {
     if (this.manualControl) return;
     if (this.targetX === null || this.targetY === null) return;
     const body = this.sprite.body as Phaser.Physics.Arcade.Body;
@@ -120,6 +142,13 @@ export default class Player {
   destroy() {
     this.sprite.destroy();
     this.livesText.destroy();
+  }
+
+  // Move sprite and HUD without touching physics body (used during tweens)
+  moveSpriteTo(x: number, y: number) {
+    this.sprite.x = x;
+    this.sprite.y = y;
+    this.livesText.setPosition(x, y - 25);
   }
 
   get x() { return this.sprite.x; }
