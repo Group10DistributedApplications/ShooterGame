@@ -53,11 +53,33 @@ public class WorldState {
             for (PlayerState p : players.values()) {
                 p.lives = 3;
                 p.invulnerableTime = 2.0;
-                p.x = 100.0 + (i % 4) * 120.0;
-                p.y = 100.0 + (i / 4) * 80.0;
                 p.fireRequested = false;
                 p.fireFacing = "";
                 p.lastTs = System.currentTimeMillis();
+
+                // Spawn order: 0 -> top-left, 1 -> bottom-right, 2 -> top-right, 3 -> bottom-left
+                switch (i % 4) {
+                    case 0: // top-left
+                        p.x = 60.0;
+                        p.y = 90.0;
+                        break;
+                    case 1: // bottom-right
+                        p.x = 580.0;
+                        p.y = 430.0;
+                        break;
+                    case 2: // top-right
+                        p.x = 580.0;
+                        p.y = 90.0;
+                        break;
+                    case 3: // bottom-left
+                        p.x = 60.0;
+                        p.y = 430.0;
+                        break;
+                    default:
+                        p.x = 400.0;
+                        p.y = 300.0;
+                }
+
                 i++;
             }
             return;
