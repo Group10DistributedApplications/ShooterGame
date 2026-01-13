@@ -6,8 +6,27 @@ package com.shootergame.game.entity;
  */
 public class PlayerState {
     public final int id;
-    public double x = 400.0;
-    public double y = 300.0;
+    // Bounds derive from the collision map at runtime; defaults are overwritten by WorldState
+    private double mapWidth = 1120.0;
+    private double mapHeight = 960.0;
+    private double margin = 30.0;
+    private com.shootergame.game.map.CollisionMap collisionMap;
+
+    public double x = mapWidth / 2.0;
+    public double y = mapHeight / 2.0;
+
+    public void setBounds(double width, double height, double margin) {
+        this.mapWidth = width;
+        this.mapHeight = height;
+        double maxMargin = Math.max(1.0, Math.min(width, height) / 4.0);
+        this.margin = Math.min(margin, maxMargin);
+    }
+
+    public void setCollisionMap(com.shootergame.game.map.CollisionMap collisionMap) {
+        this.collisionMap = collisionMap;
+    }
+    public int lives = 3;
+    public double invulnerableTime = 0.0; // seconds of invulnerability after being hit
 
     private boolean up = false;
     private boolean down = false;
@@ -145,12 +164,42 @@ public class PlayerState {
         double nx = x + dx * speed * dt;
         double ny = y + dy * speed * dt;
 
-        // Clamp to world bounds (keep margin inside walls, avoid table area at top)
-        nx = Math.max(30.0, Math.min(610.0, nx));
-        ny = Math.max(76.0, Math.min(450.0, ny));
+        // Clamp to world bounds using map dimensions
+        nx = Math.max(margin, Math.min(mapWidth - margin, nx));
+        ny = Math.max(margin, Math.min(mapHeight - margin, ny));
+
+        // Apply collision grid if provided
+        if (collisionMap != null) {
+            if (collisionMap.isBlocked(nx, y)) {
+                nx = x; // block X movement
+            }
+            if (collisionMap.isBlocked(x, ny)) {
+                ny = y; // block Y movement
+            }
+        }
 
         x = nx;
         y = ny;
+
+        // Decrease invulnerability time
+        if (invulnerableTime > 0) {
+            invulnerableTime -= dt;
+        }
+    }
+
+    public void hit() {
+        if (invulnerableTime <= 0 && lives > 0) {
+            lives--;
+            invulnerableTime = 0.5; // 0.5 seconds of invulnerability after being hit
+        }
+    }
+
+    public boolean isInvulnerable() {
+        return invulnerableTime > 0;
+    }
+
+    public boolean isAlive() {
+        return lives > 0;
     }
 
     public boolean isUp() {

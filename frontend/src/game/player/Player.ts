@@ -7,8 +7,11 @@ export default class Player {
   public hasSpeedBoost: boolean = false;
   public speedBoostTimer: number = 0;
   private baseMaxVelocity: number = 400;
+  public lives: number = 3;
+  public invulnerable: boolean = false;
   private targetX: number | null = null;
   private targetY: number | null = null;
+  private livesText: Phaser.GameObjects.Text;
   private scene: Phaser.Scene;
   private manualControl: boolean = false;
 
@@ -25,6 +28,14 @@ export default class Player {
     body.setMaxVelocity(this.baseMaxVelocity, this.baseMaxVelocity);
     this.targetX = x;
     this.targetY = y;
+    
+    // Create lives text above the player
+    this.livesText = scene.add.text(x, y - 25, `♥${this.lives}`, {
+      font: "14px Arial",
+      color: "#ffffff",
+      stroke: "#000000",
+      strokeThickness: 2
+    }).setOrigin(0.5);
   }
 
   // Allows caller to bypass target chasing and drive velocity manually.
@@ -33,17 +44,40 @@ export default class Player {
   }
 
   setPosition(x: number, y: number) {
-    const body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    body.reset(x, y);
-    body.setVelocity(0, 0);
-    this.targetX = x;
-    this.targetY = y;
+    this.sprite.x = x;
+    this.sprite.y = y;
+    this.livesText.setPosition(x, y - 25);
   }
 
   setTarget(x: number, y: number) {
     this.targetX = x;
     this.targetY = y;
   }
+
+  setLives(lives: number) {
+    this.lives = lives;
+    this.livesText.setText(`♥${lives}`);
+    // Change color based on lives
+    if (lives <= 1) {
+      this.livesText.setColor("#ff0000");
+    } else if (lives === 2) {
+      this.livesText.setColor("#ffaa00");
+    } else {
+      this.livesText.setColor("#ffffff");
+    }
+  }
+
+  setInvulnerable(invuln: boolean) {
+    this.invulnerable = invuln;
+    // Flash effect when invulnerable
+    if (invuln) {
+      this.sprite.setAlpha(0.5);
+    } else {
+      this.sprite.setAlpha(1.0);
+    }
+  }
+
+ 
 
   // interpolate toward target each frame using velocity (respects collision)
   update(delta: number) {
@@ -81,6 +115,19 @@ export default class Player {
     // Update max velocity for physics engine
     const maxVel = this.hasSpeedBoost ? this.baseMaxVelocity * 1.5 : this.baseMaxVelocity;
     body.setMaxVelocity(maxVel, maxVel);
+    
+    this.livesText.setPosition(this.sprite.x, this.sprite.y - 25);
+    
+    // Flashing effect when invulnerable
+    if (this.invulnerable) {
+      const flash = Math.sin(Date.now() / 100) > 0;
+      this.sprite.setAlpha(flash ? 0.3 : 0.7);
+    }
+  }
+
+  destroy() {
+    this.sprite.destroy();
+    this.livesText.destroy();
   }
 
   get x() { return this.sprite.x; }

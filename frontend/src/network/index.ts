@@ -7,6 +7,8 @@ let sendQueue: string[] = [];
 let connectionHandlers: Array<(connected: boolean) => void> = [];
 let registeredHandlers: Array<(playerId: number) => void> = [];
 let errorHandlers: Array<(message: string) => void> = [];
+let gameOverHandlers: Array<(msg: any) => void> = [];
+let gameStartHandlers: Array<() => void> = [];
 
 export function connect(url = SERVER_URL) {
   if (ws) return;
@@ -32,6 +34,12 @@ export function connect(url = SERVER_URL) {
             break;
           case "registered":
             registeredHandlers.forEach((h) => h(data.playerId));
+            break;
+          case "game_over":
+            gameOverHandlers.forEach((h) => h(data));
+            break;
+          case "game_start":
+            gameStartHandlers.forEach((h) => h());
             break;
           case "error":
             errorHandlers.forEach((h) => h(data.message || ""));
@@ -98,6 +106,26 @@ export function register(playerId: number, gameId?: string) {
   sendRaw(msg);
 }
 
+// Track last registered local player id so UI can send player-scoped commands
+let _localPlayerId: number | null = null;
+export function getLocalPlayerId(): number | null {
+  return _localPlayerId;
+}
+
+// Wrap register to set the tracked id then send register message
+export function registerLocal(playerId: number, gameId?: string) {
+  _localPlayerId = playerId;
+  try { console.log("network: registerLocal ->", playerId, gameId); } catch (_) {}
+  register(playerId, gameId);
+}
+
+// Convenience helper to request game start (sends as an input action)
+export function sendStartGame(payload?: string) {
+  try { console.log("network: sendStartGame called, localId=", _localPlayerId, "payload=", payload); } catch (_) {}
+  if (!_localPlayerId) return;
+  sendInput(_localPlayerId, "START", payload || "");
+}
+
 export function ping() {
   sendRaw(JSON.stringify({ type: "ping" }));
 }
@@ -109,6 +137,16 @@ export function onState(cb: (state: any) => void) {
   return () => {
     stateHandlers = stateHandlers.filter((h) => h !== cb);
   };
+}
+
+export function onGameOver(cb: (msg: any) => void) {
+  gameOverHandlers.push(cb);
+  return () => { gameOverHandlers = gameOverHandlers.filter(h => h !== cb); };
+}
+
+export function onGameStart(cb: () => void) {
+  gameStartHandlers.push(cb);
+  return () => { gameStartHandlers = gameStartHandlers.filter(h => h !== cb); };
 }
 
 export function onRegistered(cb: (playerId: number) => void) {
