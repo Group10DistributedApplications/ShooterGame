@@ -94,14 +94,6 @@ export default class Player {
       body.setVelocity(0, 0);
       return;
     }
-
-    // If we are pushing into a wall, stop and reset the target to avoid damping jitter
-    if (body.blocked.none === false || body.wasTouching.none === false) {
-      body.setVelocity(0, 0);
-      this.targetX = this.sprite.x;
-      this.targetY = this.sprite.y;
-      return;
-    }
     
     // Move using velocity (physics handles collision)
     // Apply speed boost multiplier if active
