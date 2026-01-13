@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { connect, disconnect, isConnected, setGameId, onConnectionChange, onRegistered, onError } from "../../network";
+import { connect, disconnect, isConnected, setGameId, onConnectionChange, onRegistered, onError, getServerUrl } from "../../network";
 import LobbyHeader from "./LobbyHeader";
 import ServerList from "./ServerList";
 import LobbyControls from "./LobbyControls";
@@ -60,6 +60,9 @@ export default function Lobby({ containerEl, maxPlayers, visible = true }: Props
   useEffect(() => {
     const unsubConn = onConnectionChange((c) => {
       setConnected(c);
+      if (c) {
+        try { setUrl(stripProtocolPort(getServerUrl())); } catch (_) {}
+      }
       if (!c) {
         setRegistered(false);
         setRegError(null);
@@ -85,6 +88,8 @@ export default function Lobby({ containerEl, maxPlayers, visible = true }: Props
   function handleConnect() {
     const full = normalizeUrl(url);
     connect(full);
+    // immediately reflect the normalized address in the input
+    try { setUrl(stripProtocolPort(full)); } catch (_) {}
     setGameId(stripProtocolPort(full));
     add(full);
   }

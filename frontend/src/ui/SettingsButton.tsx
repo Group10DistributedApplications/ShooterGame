@@ -5,15 +5,16 @@ type Props = { targetEl?: HTMLElement | null; onToggle: () => void };
 
 export default function SettingsButton({ targetEl, onToggle }: Props) {
   const btnRef = useRef<HTMLButtonElement | null>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
 
   useEffect(() => {
     function update() {
       if (!targetEl || !btnRef.current) { setPos(null); return; }
       const rect = targetEl.getBoundingClientRect();
       const top = rect.top + 12;
-      const left = rect.left + 12;
-      setPos({ top, left });
+      // compute distance from right edge of viewport to the right edge of the target
+      const right = Math.max(12, window.innerWidth - (rect.left + rect.width) + 12);
+      setPos({ top, right });
     }
     update();
     window.addEventListener("resize", update);
@@ -22,7 +23,7 @@ export default function SettingsButton({ targetEl, onToggle }: Props) {
   }, [targetEl]);
 
   const el = (
-    <div style={{ position: "fixed", top: pos ? pos.top : 12, left: pos ? pos.left : 12, zIndex: 20000 }}>
+    <div style={{ position: "fixed", top: pos ? pos.top : 12, right: pos ? pos.right : 12, zIndex: 20000 }}>
       <button ref={btnRef} onClick={onToggle} style={buttonStyle} aria-label="open-lobby">
         ⚙️
       </button>

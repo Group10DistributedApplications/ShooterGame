@@ -39,7 +39,7 @@ function App() {
       <StartButton targetEl={gameRef.current} />
       <SettingsButton targetEl={gameRef.current} onToggle={() => setLobbyVisible((v) => !v)} />
       <Lobby containerEl={containerEl} maxPlayers={sharedConfig?.MAX_PLAYERS ?? 6} visible={lobbyVisible} />
-      <Hud />
+      <Hud targetEl={gameRef.current} />
     </div>
   );
 }
