@@ -66,7 +66,7 @@ public class GameLoop {
                 world.syncRegisteredPlayers();
 
             // Update all alive players
-            for (PlayerState ps : worldState.getPlayers().values()) {
+            for (PlayerState ps : world.getPlayers().values()) {
                 if (ps.isAlive()) {
                     ps.update(dt);
                 }
@@ -86,7 +86,7 @@ public class GameLoop {
                 }
 
             // Check collisions between projectiles and players
-            checkCollisions();
+            checkCollisions(world);
 
                 // Remove dead/out-of-bounds projectiles
                 world.getProjectiles().keySet()
@@ -180,7 +180,7 @@ public class GameLoop {
     private void broadcastStateForGame(String gameId, WorldState world) {
         try {
             // Only send alive players to clients
-            var alivePlayers = worldState.getPlayers().values().stream()
+            var alivePlayers = world.getPlayers().values().stream()
                 .filter(PlayerState::isAlive)
                 .toList();
             
@@ -202,9 +202,9 @@ public class GameLoop {
      * Check collisions between projectiles and players.
      * If a projectile hits a player (not the owner), the player loses a life.
      */
-    private void checkCollisions() {
-        for (ProjectileState proj : worldState.getProjectiles().values()) {
-            for (PlayerState player : worldState.getPlayers().values()) {
+    private void checkCollisions(WorldState world) {
+        for (ProjectileState proj : world.getProjectiles().values()) {
+            for (PlayerState player : world.getPlayers().values()) {
                 // Don't collide with owner or if player is invulnerable
                 if (proj.owner == player.id || player.isInvulnerable()) {
                     continue;
