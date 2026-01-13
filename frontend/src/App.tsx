@@ -36,7 +36,18 @@ function App() {
   // Center the game and leave a bottom buffer so UI (HUD, buttons) don't overlap
   return (
     <div ref={wrapperRef} style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", paddingBottom: 96 }}>
-      <div ref={gameRef} style={{ width: "100%", height: "calc(100% - 96px)", maxWidth: "1400px", maxHeight: "calc(100% - 96px)", boxSizing: "border-box", flex: "0 1 auto", position: "relative" }} />
+      <div
+        ref={gameRef}
+        style={{
+          width: "min(1100px, 100%)",
+          height: "min(700px, calc(100% - 96px))",
+          maxWidth: "1400px",
+          maxHeight: "900px",
+          boxSizing: "border-box",
+          flex: "0 0 auto",
+          position: "relative",
+        }}
+      />
       <StartButton targetEl={gameRef.current} />
       <SettingsButton targetEl={gameRef.current} onToggle={() => setLobbyVisible((v) => !v)} />
       <Lobby containerEl={containerEl} maxPlayers={sharedConfig?.MAX_PLAYERS ?? 6} visible={lobbyVisible} />

@@ -24,8 +24,8 @@ const TILESET_WALLS_IMAGE = "assets/tilesets/" + TILESET_WALLS_KEY;
 const TILESET_FLOOR_IMAGE = "assets/tilesets/" + TILESET_FLOOR_KEY;
 const TILESET_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_OBJECTS_KEY;
 const TILESET_ALT_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_ALT_OBJECTS_KEY;
-// Zoom factor applied to camera to make the map appear larger on screen
-const MAP_ZOOM: number = 1.40;
+// Zoom factor applied to camera
+const MAP_ZOOM: number = 1.15;
 
 export default class GameScene extends Phaser.Scene {
   private player!: Player;
