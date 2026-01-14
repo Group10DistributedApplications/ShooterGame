@@ -32,14 +32,22 @@ public class WorldState {
     private final Map<Integer, PowerupState> powerups = new ConcurrentHashMap<>();
     private volatile int nextProjectileId = 1;
     private volatile int nextPowerupId = 1;
-    private final CollisionMap collisionMap;
+    private volatile CollisionMap collisionMap;
+    private volatile String currentMapId;
     // whether a match is currently running for this world
     private volatile boolean matchRunning = false;
+
+    private record MapSpec(String fileName, List<String> collisionLayers) {}
+    private static final Map<String, MapSpec> MAP_SPECS = Map.of(
+        "map2", new MapSpec("Map2.tmj", List.of("Walls", "Walls2", "Objects")),
+        "map3", new MapSpec("Map3.tmj", List.of("Walls", "Walls2", "Objects"))
+    );
 
     public WorldState(Space space, String gameId) {
         this.space = space;
         this.gameId = gameId != null ? gameId : "default";
-        this.collisionMap = loadCollisionMap();
+        this.currentMapId = "map2";
+        this.collisionMap = loadCollisionMap(this.currentMapId);
         initializePowerups();
     }
     
@@ -52,15 +60,21 @@ public class WorldState {
 
     }
 
-    private CollisionMap loadCollisionMap() {
+    private CollisionMap loadCollisionMap(String mapId) {
         try {
             // Resolve repo root (backend runs with cwd=.../backend); climb one level if needed
             java.nio.file.Path cwd = java.nio.file.Paths.get("").toAbsolutePath();
             java.nio.file.Path repoRoot = cwd.getFileName().toString().equalsIgnoreCase("backend") ? cwd.getParent() : cwd;
-            // Uses the Map2 Tiled JSON from the frontend assets
+            String id = mapId != null && !mapId.isBlank() ? mapId : this.currentMapId;
+            MapSpec spec = MAP_SPECS.get(id);
+            if (spec == null) {
+                id = "map2";
+                spec = MAP_SPECS.get("map2");
+            }
+            this.currentMapId = id;
             java.nio.file.Path mapPath = repoRoot
-                .resolve("frontend").resolve("public").resolve("assets").resolve("maps").resolve("Map2.tmj");
-            return CollisionMap.fromTiled(mapPath, java.util.List.of("Walls", "Walls2", "Objects"));
+                .resolve("frontend").resolve("public").resolve("assets").resolve("maps").resolve(spec.fileName());
+            return CollisionMap.fromTiled(mapPath, spec.collisionLayers());
         } catch (Exception e) {
             logger.warn("Failed to load collision map, defaulting to empty: {}", e.getMessage());
             // Fallback: empty, default map size (70x60 @16px) so movement is not stuck
@@ -68,6 +82,10 @@ public class WorldState {
             boolean[][] empty = new boolean[h][w];
             return new CollisionMap(w, h, t, t, empty);
         }
+    }
+
+    public String getCurrentMapId() {
+        return currentMapId;
     }
 
     /**
@@ -80,6 +98,13 @@ public class WorldState {
 
         // Support a global START action to (re)start the match for this world.
         if ("START".equals(action)) {
+            String requestedMap = payload != null && !payload.isBlank() ? payload : currentMapId;
+            try {
+                this.collisionMap = loadCollisionMap(requestedMap);
+                this.currentMapId = requestedMap;
+            } catch (Exception e) {
+                logger.warn("Falling back to existing map after failed load: {}", e.getMessage());
+            }
             // Ensure registered players are present
             syncRegisteredPlayers();
             // clear projectiles

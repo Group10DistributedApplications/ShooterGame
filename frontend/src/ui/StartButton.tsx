@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as net from "../network";
+import { getSelectedMapId, getServerMapId } from "../game/mapConfigs";
 
 type Props = { targetEl?: HTMLElement | null };
 
@@ -36,7 +37,9 @@ export default function StartButton({ targetEl }: Props) {
   function handleStart() {
     try { console.log("ui: Start button clicked (portal)"); } catch (_) {}
     try { console.log("ui: connected=", connected, "registered=", registered); } catch (_) {}
-    net.sendStartGame();
+    // Use selected map for a new start; if a match is already running, prefer the last server map.
+    const mapId = visible ? getSelectedMapId() : getServerMapId();
+    net.sendStartGame(mapId);
     // hide immediately after click until game_over
     setVisible(false);
   }

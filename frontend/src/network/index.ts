@@ -11,7 +11,7 @@ let connectionHandlers: Array<(connected: boolean) => void> = [];
 let registeredHandlers: Array<(playerId: number) => void> = [];
 let errorHandlers: Array<(message: string) => void> = [];
 let gameOverHandlers: Array<(msg: any) => void> = [];
-let gameStartHandlers: Array<() => void> = [];
+let gameStartHandlers: Array<(msg: any) => void> = [];
 // current registered player id (set when server sends 'registered')
 let currentRegisteredPlayerId: number | null = null;
 
@@ -49,7 +49,7 @@ export function connect(url = SERVER_URL) {
             gameOverHandlers.forEach((h) => h(data));
             break;
           case "game_start":
-            gameStartHandlers.forEach((h) => h());
+            gameStartHandlers.forEach((h) => h(data));
             break;
           case "error":
             errorHandlers.forEach((h) => h(data.message || ""));
@@ -139,9 +139,17 @@ export function registerLocal(playerId: number, gameId?: string) {
 
 // Convenience helper to request game start (sends as an input action)
 export function sendStartGame(payload?: string) {
-  try { console.log("network: sendStartGame called, localId=", _localPlayerId, "payload=", payload); } catch (_) {}
-  if (!_localPlayerId) return;
-  sendInput(_localPlayerId, "START", payload || "");
+  let pid = _localPlayerId ?? currentRegisteredPlayerId;
+  if (!pid) {
+    pid = Math.floor(Math.random() * 9000) + 1000;
+    try { registerLocal(pid, currentGameId); } catch (_) {}
+  }
+  try { console.log("network: sendStartGame called, playerId=", pid, "payload=", payload); } catch (_) {}
+  if (!pid) {
+    console.warn("network: sendStartGame skipped because no local/registered player id is known");
+    return;
+  }
+  sendInput(pid, "START", payload || "");
 }
 
 export function ping() {
@@ -162,7 +170,7 @@ export function onGameOver(cb: (msg: any) => void) {
   return () => { gameOverHandlers = gameOverHandlers.filter(h => h !== cb); };
 }
 
-export function onGameStart(cb: () => void) {
+export function onGameStart(cb: (msg: any) => void) {
   gameStartHandlers.push(cb);
   return () => { gameStartHandlers = gameStartHandlers.filter(h => h !== cb); };
 }

@@ -6,6 +6,7 @@ import ServerList from "./ServerList";
 import LobbyControls from "./LobbyControls";
 import { container, box } from "./lobbyStyles";
 import { loadServers, saveServers, normalizeUrl, stripProtocolPort } from "./lobbyUtils";
+import { getAvailableMaps, getSelectedMapId, setSelectedMapId } from "../../game/mapConfigs";
 
 function useRecentServers() {
   const [recent, setRecent] = useState<string[]>(() => loadServers());
@@ -56,6 +57,7 @@ export default function Lobby({ containerEl, maxPlayers, visible = true }: Props
   const [connected, setConnected] = useState<boolean>(isConnected());
   const [registered, setRegistered] = useState<boolean>(false);
   const [regError, setRegError] = useState<string | null>(null);
+  const [mapId, setMapId] = useState<string>(() => getSelectedMapId());
 
   useEffect(() => {
     const unsubConn = onConnectionChange((c) => {
@@ -94,6 +96,11 @@ export default function Lobby({ containerEl, maxPlayers, visible = true }: Props
     add(full);
   }
 
+  function handleMapChange(next: string) {
+    setMapId(next);
+    setSelectedMapId(next);
+  }
+
   function handleKey(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") handleConnect();
   }
@@ -118,7 +125,17 @@ export default function Lobby({ containerEl, maxPlayers, visible = true }: Props
     <div style={container}>
       <div style={box}>
         <LobbyHeader connected={connected} maxPlayers={maxPlayers} isRegistered={registered} registrationError={regError} />
-        <LobbyControls url={url} onChange={setUrl} onKeyDown={handleKey} onConnect={handleConnect} onDisconnect={handleDisconnect} connected={connected} />
+        <LobbyControls
+          url={url}
+          onChange={setUrl}
+          onKeyDown={handleKey}
+          onConnect={handleConnect}
+          onDisconnect={handleDisconnect}
+          connected={connected}
+          mapId={mapId}
+          onMapChange={handleMapChange}
+          maps={getAvailableMaps().map((m) => ({ id: m.id, label: m.label }))}
+        />
         <ServerList items={recent} onUse={useRecent} onRemove={removeRecent} />
       </div>
     </div>
