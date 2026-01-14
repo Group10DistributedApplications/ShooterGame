@@ -62,10 +62,12 @@ export default class GameScene extends Phaser.Scene {
     this.load.image(TILESET_ALT_OBJECTS_KEY, TILESET_ALT_OBJECTS_IMAGE);
     
     // Load player sprites
-    this.load.image("player-green", "src/assets/sprites/Sprite_Green.png");
-    this.load.image("player-green-topdown", "src/assets/sprites/Sprite-Green-TopDown.png");
+    this.load.image("player-green", "src/assets/sprites/Sprite-Green.png");
+    this.load.image("player-green-topdown-back", "src/assets/sprites/Sprite-Green-TopDown-Back.png");
+    this.load.image("player-green-topdown-front", "src/assets/sprites/Sprite-Green-TopDown-Front.png");
     this.load.image("player-blue", "src/assets/sprites/Sprite-Blue.png");
-    this.load.image("player-blue-topdown", "src/assets/sprites/Sprite-Blue-TopDown.png");
+    this.load.image("player-blue-topdown-back", "src/assets/sprites/Sprite-Blue-TopDown-Back.png");
+    this.load.image("player-blue-topdown-front", "src/assets/sprites/Sprite-Blue-TopDown-Front.png");
     this.load.image("projectile", "src/assets/sprites/Sprite-Projectile.png");
   }
 
