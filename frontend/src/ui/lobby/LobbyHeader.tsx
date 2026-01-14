@@ -1,6 +1,7 @@
 import React from "react";
 import { header, statusRow, statusDot, smallButton } from "./lobbyStyles";
 import { sendStartGame } from "../../network";
+import { getSelectedMapId } from "../../game/mapConfigs";
 
 type Props = { connected: boolean; maxPlayers?: number; isRegistered?: boolean; registrationError?: string | null };
 
@@ -33,7 +34,7 @@ export default function LobbyHeader({ connected, maxPlayers, isRegistered, regis
         )}
         {registrationError && <div style={{ fontSize: 12, color: "#ff7b7b" }}>{registrationError}</div>}
         {connected && isRegistered && (
-          <button onClick={() => sendStartGame()} style={smallButton}>Restart Game</button>
+          <button onClick={() => sendStartGame(getSelectedMapId())} style={smallButton}>Restart Game</button>
         )}
       </div>
     </div>

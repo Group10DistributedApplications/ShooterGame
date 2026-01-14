@@ -5,35 +5,17 @@ import InputManager from "./input/InputManager";
 import * as net from "../network";
 import Projectile from "./projectile/Projectile";
 import Powerup from "./PowerUp/Powerup";
+import { getSelectedMapConfig, setSelectedMapId, MapConfig } from "./mapConfigs";
 
-// Map/tileset asset paths for Map2
-const MAP_KEY = "map2";
-const MAP_PATH = "assets/maps/Map2.tmj";
-
-const TILESET_WALLS_NAME = "Interior-Hospital Walls";
-const TILESET_FLOOR_NAME = "Interior-Hospital Floor";
-const TILESET_OBJECTS_NAME = "Interior-Hospital Objects";
-const TILESET_ALT_OBJECTS_NAME = "Interior-Hospital-Alt Objects";
-
-const TILESET_WALLS_KEY = "TileA4_PHC_Interior-Hospital.png";
-const TILESET_FLOOR_KEY = "TileA5_PHC_Interior-Hospital.png";
-const TILESET_OBJECTS_KEY = "TileB_PHC_Interior-Hospital.png";
-const TILESET_ALT_OBJECTS_KEY = "TileC_PHC_Interior-Hospital-Alt.png";
-
-const TILESET_WALLS_IMAGE = "assets/tilesets/" + TILESET_WALLS_KEY;
-const TILESET_FLOOR_IMAGE = "assets/tilesets/" + TILESET_FLOOR_KEY;
-const TILESET_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_OBJECTS_KEY;
-const TILESET_ALT_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_ALT_OBJECTS_KEY;
-// Zoom factor applied to camera
-const MAP_ZOOM: number = 1.15;
 // Teleport/tween thresholds (pixels)
 const TELEPORT_THRESHOLD = 8;
 const SMOOTH_THRESHOLD = 200;
 
 export default class GameScene extends Phaser.Scene {
+  private mapConfig: MapConfig = getSelectedMapConfig();
   private player!: Player;
   private inputManager!: InputManager;
-  private wallsLayer!: Phaser.Tilemaps.TilemapLayer;
+  private wallsLayer?: Phaser.Tilemaps.TilemapLayer;
   private wallsLayer2?: Phaser.Tilemaps.TilemapLayer;
   private objectsLayer?: Phaser.Tilemaps.TilemapLayer;
   private collisionLayers: Phaser.Tilemaps.TilemapLayer[] = [];
@@ -45,6 +27,7 @@ export default class GameScene extends Phaser.Scene {
   private remoteProjectiles: Map<number, Projectile> = new Map();
   private powerups: Map<number, Powerup> = new Map();
   private unsubscribeState: (() => void) | null = null;
+  private unsubscribeGameStart: (() => void) | null = null;
   private registered: boolean = false;
   private connCheckId: number | null = null;
   private smoothTween: Phaser.Tweens.Tween | null = null;
@@ -54,12 +37,12 @@ export default class GameScene extends Phaser.Scene {
   }
 
   preload() {
+    this.mapConfig = getSelectedMapConfig();
     // Load map and tilesets
-    this.load.tilemapTiledJSON(MAP_KEY, MAP_PATH);
-    this.load.image(TILESET_WALLS_KEY, TILESET_WALLS_IMAGE);
-    this.load.image(TILESET_FLOOR_KEY, TILESET_FLOOR_IMAGE);
-    this.load.image(TILESET_OBJECTS_KEY, TILESET_OBJECTS_IMAGE);
-    this.load.image(TILESET_ALT_OBJECTS_KEY, TILESET_ALT_OBJECTS_IMAGE);
+    this.load.tilemapTiledJSON(this.mapConfig.mapKey, this.mapConfig.mapPath);
+    for (const ts of this.mapConfig.tilesets) {
+      this.load.image(ts.key, ts.imagePath);
+    }
     
     // Load player sprites
     this.load.image("player-green", "src/assets/sprites/Sprite_Green.png");
@@ -71,21 +54,29 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     // --- MAP SETUP ---
-    const map = this.make.tilemap({ key: MAP_KEY });
-    const tilesetWalls = map.addTilesetImage(TILESET_WALLS_NAME, TILESET_WALLS_KEY);
-    const tilesetFloor = map.addTilesetImage(TILESET_FLOOR_NAME, TILESET_FLOOR_KEY);
-    const tilesetObjects = map.addTilesetImage(TILESET_OBJECTS_NAME, TILESET_OBJECTS_KEY);
-    const tilesetAltObjects = map.addTilesetImage(TILESET_ALT_OBJECTS_NAME, TILESET_ALT_OBJECTS_KEY);
-    const tilesets = [tilesetWalls, tilesetFloor, tilesetObjects, tilesetAltObjects].filter(Boolean) as Phaser.Tilemaps.Tileset[];
-    if (tilesets.length < 2) {
-      throw new Error("Tileset(s) not found. Check names in Tiled vs Phaser keys.");
+    const map = this.make.tilemap({ key: this.mapConfig.mapKey });
+    const tilesets = this.mapConfig.tilesets
+      .map((ts) => map.addTilesetImage(ts.name, ts.key))
+      .filter(Boolean) as Phaser.Tilemaps.Tileset[];
+    if (tilesets.length === 0) {
+      throw new Error("No tilesets found for selected map. Check names/keys in mapConfigs.ts");
     }
 
+    const tryLayer = (name: string): Phaser.Tilemaps.TilemapLayer | undefined => {
+      try { return map.createLayer(name, tilesets, 0, 0) || undefined; } catch (_) { return undefined; }
+    };
+
     map.createLayer("Floors", tilesets, 0, 0);
-    this.objectsLayer = map.createLayer("Objects", tilesets, 0, 0) || undefined;
-    this.wallsLayer = map.createLayer("Walls", tilesets, 0, 0)!;
-    this.wallsLayer2 = map.createLayer("Walls2", tilesets, 0, 0) || undefined;
-    this.collisionLayers = [this.wallsLayer, this.wallsLayer2, this.objectsLayer].filter(Boolean) as Phaser.Tilemaps.TilemapLayer[];
+    this.objectsLayer = tryLayer("Objects") || undefined;
+    this.wallsLayer = tryLayer("Walls") || tryLayer("Collisions") || tryLayer("Collision") || undefined;
+    this.wallsLayer2 = tryLayer("Walls2") || undefined;
+    const collisionLayerNames = this.mapConfig.collisionLayerNames || ["Walls", "Walls2", "Objects"];
+    this.collisionLayers = collisionLayerNames
+      .map((name) => tryLayer(name))
+      .filter(Boolean) as Phaser.Tilemaps.TilemapLayer[];
+    if (!this.wallsLayer && this.collisionLayers.length > 0) {
+      this.wallsLayer = this.collisionLayers[0];
+    }
     for (const layer of this.collisionLayers) {
       // Use Tiled collision shapes if present; fallback to excluding empty tiles
       if (typeof layer.setCollisionFromCollisionGroup === "function") {
@@ -110,14 +101,21 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, mapW, mapH);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
     // Apply zoom to make the map and sprites appear larger; tweak MAP_ZOOM as needed
-    if (MAP_ZOOM && MAP_ZOOM !== 1) {
-      this.cameras.main.setZoom(MAP_ZOOM);
+    if (this.mapConfig.zoom && this.mapConfig.zoom !== 1) {
+      this.cameras.main.setZoom(this.mapConfig.zoom);
     }
 
     // --- NETWORK SETUP ---
     // Do NOT auto-connect or auto-register here; Lobby controls connection.
     this.inputManager = new InputManager(this, this.localPlayerId, () => this.player.facing || "up");
     this.unsubscribeState = net.onState((state) => this.handleState(state));
+    this.unsubscribeGameStart = net.onGameStart((msg) => {
+      const next = msg && typeof msg.map === "string" ? msg.map : null;
+      if (next && next !== this.mapConfig.id) {
+        setSelectedMapId(next);
+        this.scene.restart();
+      }
+    });
     const unsubscribeConn = net.onConnectionChange((connected) => {
       if (!connected) {
         // mark as not registered so we re-register on reconnect
@@ -163,6 +161,10 @@ export default class GameScene extends Phaser.Scene {
       if (this.unsubscribeState) {
         try { this.unsubscribeState(); } catch (_) { /* ignore */ }
         this.unsubscribeState = null;
+      }
+      if (this.unsubscribeGameStart) {
+        try { this.unsubscribeGameStart(); } catch (_) {}
+        this.unsubscribeGameStart = null;
       }
     });
   }

@@ -293,7 +293,8 @@ public class GameLoop {
         // If this is a START input, broadcast a game_start message so clients can reset UI
         try {
             if ("START".equals(input.action())) {
-                Map<String, Object> startMsg = Map.of("type", "game_start");
+                String mapId = input.payload() != null && !input.payload().isBlank() ? input.payload() : ws.getCurrentMapId();
+                Map<String, Object> startMsg = Map.of("type", "game_start", "map", mapId);
                 String startJson = serializer.toJson(startMsg);
                 server.broadcastToGame(gameId, startJson);
             }

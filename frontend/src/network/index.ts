@@ -11,7 +11,7 @@ let connectionHandlers: Array<(connected: boolean) => void> = [];
 let registeredHandlers: Array<(playerId: number) => void> = [];
 let errorHandlers: Array<(message: string) => void> = [];
 let gameOverHandlers: Array<(msg: any) => void> = [];
-let gameStartHandlers: Array<() => void> = [];
+let gameStartHandlers: Array<(msg: any) => void> = [];
 // current registered player id (set when server sends 'registered')
 let currentRegisteredPlayerId: number | null = null;
 
@@ -49,7 +49,7 @@ export function connect(url = SERVER_URL) {
             gameOverHandlers.forEach((h) => h(data));
             break;
           case "game_start":
-            gameStartHandlers.forEach((h) => h());
+            gameStartHandlers.forEach((h) => h(data));
             break;
           case "error":
             errorHandlers.forEach((h) => h(data.message || ""));
@@ -162,7 +162,7 @@ export function onGameOver(cb: (msg: any) => void) {
   return () => { gameOverHandlers = gameOverHandlers.filter(h => h !== cb); };
 }
 
-export function onGameStart(cb: () => void) {
+export function onGameStart(cb: (msg: any) => void) {
   gameStartHandlers.push(cb);
   return () => { gameStartHandlers = gameStartHandlers.filter(h => h !== cb); };
 }
