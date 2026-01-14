@@ -1,5 +1,6 @@
 import React from "react";
-import { header, statusRow, statusDot } from "./lobbyStyles";
+import { header, statusRow, statusDot, smallButton } from "./lobbyStyles";
+import { sendStartGame } from "../../network";
 
 type Props = { connected: boolean; maxPlayers?: number; isRegistered?: boolean; registrationError?: string | null };
 
@@ -31,6 +32,9 @@ export default function LobbyHeader({ connected, maxPlayers, isRegistered, regis
           <div style={{ fontSize: 12, opacity: 0.9 }}>Max players: {maxPlayers}</div>
         )}
         {registrationError && <div style={{ fontSize: 12, color: "#ff7b7b" }}>{registrationError}</div>}
+        {connected && isRegistered && (
+          <button onClick={() => sendStartGame()} style={smallButton}>Restart Game</button>
+        )}
       </div>
     </div>
   );

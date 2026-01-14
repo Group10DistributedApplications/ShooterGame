@@ -66,3 +66,9 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* Force dark theme */
+html, body, #root {
+  background-color: #121212 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}

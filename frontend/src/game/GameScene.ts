@@ -4,29 +4,50 @@ import Player from "./player/Player";
 import InputManager from "./input/InputManager";
 import * as net from "../network";
 import Projectile from "./projectile/Projectile";
-import type { ProjectileConfig } from "./projectile/Projectile";
+import Powerup from "./PowerUp/Powerup";
 
-// Map/tileset asset paths
-const MAP_KEY = "map1";
-const MAP_PATH = "assets/maps/Map1.tmj";
-const TILESET1_KEY = "TileA5_PHC_Interior-Hospital.png";
-const TILESET1_IMAGE = "assets/tilesets/TileA5_PHC_Interior-Hospital.png";
-const TILESET2_KEY = "TileA4_PHC_Interior-Hospital.png";
-const TILESET2_IMAGE = "assets/tilesets/TileA4_PHC_Interior-Hospital.png";
+// Map/tileset asset paths for Map2
+const MAP_KEY = "map2";
+const MAP_PATH = "assets/maps/Map2.tmj";
+
+const TILESET_WALLS_NAME = "Interior-Hospital Walls";
+const TILESET_FLOOR_NAME = "Interior-Hospital Floor";
+const TILESET_OBJECTS_NAME = "Interior-Hospital Objects";
+const TILESET_ALT_OBJECTS_NAME = "Interior-Hospital-Alt Objects";
+
+const TILESET_WALLS_KEY = "TileA4_PHC_Interior-Hospital.png";
+const TILESET_FLOOR_KEY = "TileA5_PHC_Interior-Hospital.png";
+const TILESET_OBJECTS_KEY = "TileB_PHC_Interior-Hospital.png";
+const TILESET_ALT_OBJECTS_KEY = "TileC_PHC_Interior-Hospital-Alt.png";
+
+const TILESET_WALLS_IMAGE = "assets/tilesets/" + TILESET_WALLS_KEY;
+const TILESET_FLOOR_IMAGE = "assets/tilesets/" + TILESET_FLOOR_KEY;
+const TILESET_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_OBJECTS_KEY;
+const TILESET_ALT_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_ALT_OBJECTS_KEY;
+// Zoom factor applied to camera
+const MAP_ZOOM: number = 1.15;
+// Teleport/tween thresholds (pixels)
+const TELEPORT_THRESHOLD = 8;
+const SMOOTH_THRESHOLD = 200;
 
 export default class GameScene extends Phaser.Scene {
   private player!: Player;
   private inputManager!: InputManager;
   private wallsLayer!: Phaser.Tilemaps.TilemapLayer;
+  private wallsLayer2?: Phaser.Tilemaps.TilemapLayer;
+  private objectsLayer?: Phaser.Tilemaps.TilemapLayer;
+  private collisionLayers: Phaser.Tilemaps.TilemapLayer[] = [];
   
   private remotePlayers: Map<number, Player> = new Map();
   private localPlayerId: number = Math.floor(Math.random() * 9000) + 1000; // random 1000-9999
   private debugText?: Phaser.GameObjects.Text;
   private statusText?: Phaser.GameObjects.Text;
   private remoteProjectiles: Map<number, Projectile> = new Map();
+  private powerups: Map<number, Powerup> = new Map();
   private unsubscribeState: (() => void) | null = null;
   private registered: boolean = false;
   private connCheckId: number | null = null;
+  private smoothTween: Phaser.Tweens.Tween | null = null;
 
   constructor() {
     super("game");
@@ -35,8 +56,10 @@ export default class GameScene extends Phaser.Scene {
   preload() {
     // Load map and tilesets
     this.load.tilemapTiledJSON(MAP_KEY, MAP_PATH);
-    this.load.image(TILESET1_KEY, "assets/tilesets/" + TILESET1_KEY);
-    this.load.image(TILESET2_KEY, "assets/tilesets/" + TILESET2_KEY);
+    this.load.image(TILESET_WALLS_KEY, TILESET_WALLS_IMAGE);
+    this.load.image(TILESET_FLOOR_KEY, TILESET_FLOOR_IMAGE);
+    this.load.image(TILESET_OBJECTS_KEY, TILESET_OBJECTS_IMAGE);
+    this.load.image(TILESET_ALT_OBJECTS_KEY, TILESET_ALT_OBJECTS_IMAGE);
     
     // Load player sprites
     this.load.image("player-green", "src/assets/sprites/Sprite_Green.png");
@@ -49,19 +72,36 @@ export default class GameScene extends Phaser.Scene {
   create() {
     // --- MAP SETUP ---
     const map = this.make.tilemap({ key: MAP_KEY });
-    const tileset1 = map.addTilesetImage("Interior-Hospital floor", TILESET1_KEY);
-    const tileset2 = map.addTilesetImage("Interior-Hospital Walls", TILESET2_KEY);
-    if (!tileset1 || !tileset2) {
+    const tilesetWalls = map.addTilesetImage(TILESET_WALLS_NAME, TILESET_WALLS_KEY);
+    const tilesetFloor = map.addTilesetImage(TILESET_FLOOR_NAME, TILESET_FLOOR_KEY);
+    const tilesetObjects = map.addTilesetImage(TILESET_OBJECTS_NAME, TILESET_OBJECTS_KEY);
+    const tilesetAltObjects = map.addTilesetImage(TILESET_ALT_OBJECTS_NAME, TILESET_ALT_OBJECTS_KEY);
+    const tilesets = [tilesetWalls, tilesetFloor, tilesetObjects, tilesetAltObjects].filter(Boolean) as Phaser.Tilemaps.Tileset[];
+    if (tilesets.length < 2) {
       throw new Error("Tileset(s) not found. Check names in Tiled vs Phaser keys.");
     }
-    const groundLayer = map.createLayer("Ground", [tileset1, tileset2], 0, 0);
-    this.wallsLayer = map.createLayer("Walls", [tileset1, tileset2], 0, 0)!;
-    this.wallsLayer.setCollisionByExclusion([-1, 0]);
+
+    map.createLayer("Floors", tilesets, 0, 0);
+    this.objectsLayer = map.createLayer("Objects", tilesets, 0, 0) || undefined;
+    this.wallsLayer = map.createLayer("Walls", tilesets, 0, 0)!;
+    this.wallsLayer2 = map.createLayer("Walls2", tilesets, 0, 0) || undefined;
+    this.collisionLayers = [this.wallsLayer, this.wallsLayer2, this.objectsLayer].filter(Boolean) as Phaser.Tilemaps.TilemapLayer[];
+    for (const layer of this.collisionLayers) {
+      // Use Tiled collision shapes if present; fallback to excluding empty tiles
+      if (typeof layer.setCollisionFromCollisionGroup === "function") {
+        layer.setCollisionFromCollisionGroup();
+      }
+      layer.setCollisionByExclusion([-1, 0]);
+    }
 
     // --- PLAYER SETUP ---
     this.player = new Player(this, 400, 300, "green");
     // Enable target-chasing so player follows server position updates
     this.player.setManualControl(false);
+    // Local player collides with all solid layers (walls + pillars/objects)
+    for (const layer of this.collisionLayers) {
+      this.physics.add.collider(this.player.sprite, layer);
+    }
 
     // world & camera bounds match the map size
     const mapW = map.widthInPixels;
@@ -69,6 +109,10 @@ export default class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, mapW, mapH);
     this.cameras.main.setBounds(0, 0, mapW, mapH);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
+    // Apply zoom to make the map and sprites appear larger; tweak MAP_ZOOM as needed
+    if (MAP_ZOOM && MAP_ZOOM !== 1) {
+      this.cameras.main.setZoom(MAP_ZOOM);
+    }
 
     // --- NETWORK SETUP ---
     // Do NOT auto-connect or auto-register here; Lobby controls connection.
@@ -84,7 +128,7 @@ export default class GameScene extends Phaser.Scene {
       // on connect: if not yet registered, register now
       if (!this.registered && net.isConnected()) {
         try {
-          net.register(this.localPlayerId, net.getGameId());
+          net.registerLocal(this.localPlayerId, net.getGameId());
           this.registered = true;
         } catch (e) {
           // ignore
@@ -94,12 +138,12 @@ export default class GameScene extends Phaser.Scene {
 
     // attempt initial registration; if not connected yet, poll until connected
     if (net.isConnected()) {
-      try { net.register(this.localPlayerId, net.getGameId()); this.registered = true; } catch (e) { /* ignore */ }
+      try { net.registerLocal(this.localPlayerId, net.getGameId()); this.registered = true; } catch (e) { /* ignore */ }
     } else {
       this.connCheckId = window.setInterval(() => {
         try {
-          if (!this.registered && net.isConnected()) {
-            net.register(this.localPlayerId, net.getGameId());
+            if (!this.registered && net.isConnected()) {
+            net.registerLocal(this.localPlayerId, net.getGameId());
             this.registered = true;
             if (this.connCheckId) { clearInterval(this.connCheckId); this.connCheckId = null; }
           }
@@ -131,7 +175,14 @@ export default class GameScene extends Phaser.Scene {
       seen.add(id);
       if (id === this.localPlayerId) {
         // apply authoritative server state for local player
-        this.player.setTarget(p.x || 0, p.y || 0);
+        const serverX = p.x || 0;
+        const serverY = p.y || 0;
+        const res = this.player.reconcileServerPosition(serverX, serverY, TELEPORT_THRESHOLD, SMOOTH_THRESHOLD);
+        if (res.action === "smooth") {
+          this.smoothMoveLocalTo(serverX, serverY, res.dist);
+        }
+        this.player.hasSpeedBoost = p.hasSpeedBoost ?? false;
+        this.player.speedBoostTimer = p.speedBoostTimer ?? 0;
         this.player.setLives(p.lives !== undefined ? p.lives : 3);
         this.player.setInvulnerable(p.invulnerableTime > 0);
         continue;
@@ -141,10 +192,14 @@ export default class GameScene extends Phaser.Scene {
       if (!rp) {
         rp = new Player(this, p.x || 0, p.y || 0, "blue");
         this.remotePlayers.set(id, rp);
-        // Add collision for remote player
-        this.physics.add.collider(rp.sprite, this.wallsLayer);
+        // Add collision for remote player against all collidable layers
+        for (const layer of this.collisionLayers) {
+          this.physics.add.collider(rp.sprite, layer);
+        }
       }
       rp.setTarget(p.x || 0, p.y || 0);
+      rp.hasSpeedBoost = p.hasSpeedBoost ?? false;
+      rp.speedBoostTimer = p.speedBoostTimer ?? 0;
       rp.setLives(p.lives !== undefined ? p.lives : 3);
       rp.setInvulnerable(p.invulnerableTime > 0);
     }
@@ -180,10 +235,33 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
+    // handle server-authoritative powerups
+    const pwups: any[] = state.powerups || [];
+    const seenPowerups = new Set<number>();
+    for (const pu of pwups) {
+      const id = pu.id as number;
+      seenPowerups.add(id);
+      let powerup = this.powerups.get(id);
+      if (!powerup) {
+        powerup = Powerup.fromServer(this, pu);
+        this.powerups.set(id, powerup);
+      } else {
+        powerup.updateFromServer(pu);
+      }
+    }
+
+    // remove powerups not present anymore
+    for (const [id, powerup] of Array.from(this.powerups.entries())) {
+      if (!seenPowerups.has(id)) {
+        powerup.destroy();
+        this.powerups.delete(id);
+      }
+    }
+
     // update debug HUD
     if (this.debugText) {
       const lines = [] as string[];
-      lines.push(`local=${this.localPlayerId} players=${players.length} remotes=${this.remotePlayers.size} projectiles=${this.remoteProjectiles.size}`);
+      lines.push(`local=${this.localPlayerId} players=${players.length} remotes=${this.remotePlayers.size} projectiles=${this.remoteProjectiles.size} powerups=${this.powerups.size}`);
       for (const p of players) {
         lines.push(`${p.id}: x=${Number(p.x).toFixed(1)} y=${Number(p.y).toFixed(1)}`);
       }
@@ -191,7 +269,43 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  update(time: number, delta: number) {
+  // Smoothly move the local player to (x,y) by tweening the sprite while
+  // temporarily disabling the physics body. Restores physics and target after.
+  private smoothMoveLocalTo(x: number, y: number, dist: number) {
+    if (this.smoothTween) {
+      this.smoothTween.stop();
+      this.smoothTween = null;
+    }
+    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body | undefined;
+    if (body) {
+      body.setVelocity(0, 0);
+      body.enable = false;
+    }
+    this.player.setManualControl(true);
+
+    const duration = Math.min(300, Math.max(80, Math.floor(dist * 2)));
+    const tmp = { x: this.player.x, y: this.player.y };
+    this.smoothTween = this.tweens.add({
+      targets: tmp,
+      x: { value: x, ease: "Cubic.easeOut" },
+      y: { value: y, ease: "Cubic.easeOut" },
+      duration,
+      onUpdate: () => { this.player.moveSpriteTo(tmp.x, tmp.y); },
+      onComplete: () => {
+        this.player.moveSpriteTo(x, y);
+        if (body) {
+          body.reset(x, y);
+          body.enable = true;
+          body.setVelocity(0, 0);
+        }
+        this.player.setManualControl(false);
+        this.player.setTarget(x, y);
+        this.smoothTween = null;
+      }
+    });
+  }
+
+  update(_time: number, delta: number) {
     // update local facing from input so FIRE uses correct heading
     const dir = this.inputManager.getDirection();
     if (dir) this.player.updateFacing(dir);
@@ -199,6 +313,11 @@ export default class GameScene extends Phaser.Scene {
     for (const p of this.remoteProjectiles.values()) {
       p.sprite.x += p.vx * delta / 1000;
       p.sprite.y += p.vy * delta / 1000;
+    }
+
+    // Update powerups (animation)
+    for (const powerup of this.powerups.values()) {
+      powerup.update(delta);
     }
 
     // Update remote players
