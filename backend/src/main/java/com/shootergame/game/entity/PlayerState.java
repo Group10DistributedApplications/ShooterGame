@@ -26,7 +26,7 @@ public class PlayerState {
         this.collisionMap = collisionMap;
     }
     public int lives = 3;
-    public double invulnerableTime = 0.0; // seconds of invulnerability after being hit
+    public double invulnerableTime = 0.0; // Start of game
 
     private boolean up = false;
     private boolean down = false;
@@ -39,7 +39,7 @@ public class PlayerState {
     
     // Shooting cooldown
     public double shootCooldown = 0.0;
-    private static final double SHOOT_COOLDOWN_DURATION = 1; // 1 seconds between shots
+    private static final double SHOOT_COOLDOWN_DURATION = 0.5; // 1 seconds between shots
     
     // Powerup state
     public boolean hasSpeedBoost = false;

@@ -2,6 +2,7 @@ package com.shootergame.game;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 import org.jspace.Space;
 import org.slf4j.Logger;
@@ -28,6 +29,9 @@ public class GameLoop {
     private final JsonSerializer serializer;
     private volatile boolean running = true;
     private volatile long lastTick = 0L;
+    // Throttle how often we broadcast full world state to clients
+    private final long broadcastIntervalNs = TimeUnit.MILLISECONDS.toNanos(50); // ~50ms
+    private volatile long lastBroadcastNs = 0L;
 
     public GameLoop(Space space, NetworkServer server) {
         this.space = space;
@@ -36,7 +40,8 @@ public class GameLoop {
         // create default world
         this.worlds.put("default", new WorldState(space, "default"));
         this.serializer = new JsonSerializer();
-        this.tickScheduler = new TickScheduler(this::tick, 50);
+        // Run at ~50Hz (20ms) for smoother updates
+        this.tickScheduler = new TickScheduler(this::tick, 20);
     }
 
     public void start() {
@@ -57,6 +62,7 @@ public class GameLoop {
             long now = System.nanoTime();
             double dt = (lastTick == 0L) ? 0.05 : (now - lastTick) / 1_000_000_000.0;
             lastTick = now;
+            boolean shouldBroadcast = (now - lastBroadcastNs) >= broadcastIntervalNs;
 
             // Run simulation for each world (game)
             for (Map.Entry<String, WorldState> entry : worlds.entrySet()) {
@@ -129,8 +135,14 @@ public class GameLoop {
                     logger.error("Error while evaluating win condition for game=" + gid, e);
                 }
 
-                // Broadcast state to clients in this game only
-                broadcastStateForGame(gid, world);
+                // Broadcast state to clients in this game only (throttled)
+                if (shouldBroadcast) {
+                    broadcastStateForGame(gid, world);
+                }
+            }
+
+            if (shouldBroadcast) {
+                lastBroadcastNs = now;
             }
 
         } catch (Exception e) {
