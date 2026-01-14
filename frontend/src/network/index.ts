@@ -139,7 +139,11 @@ export function registerLocal(playerId: number, gameId?: string) {
 
 // Convenience helper to request game start (sends as an input action)
 export function sendStartGame(payload?: string) {
-  const pid = _localPlayerId ?? currentRegisteredPlayerId;
+  let pid = _localPlayerId ?? currentRegisteredPlayerId;
+  if (!pid) {
+    pid = Math.floor(Math.random() * 9000) + 1000;
+    try { registerLocal(pid, currentGameId); } catch (_) {}
+  }
   try { console.log("network: sendStartGame called, playerId=", pid, "payload=", payload); } catch (_) {}
   if (!pid) {
     console.warn("network: sendStartGame skipped because no local/registered player id is known");

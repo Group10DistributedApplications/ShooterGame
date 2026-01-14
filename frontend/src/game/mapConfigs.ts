@@ -49,6 +49,7 @@ const MAPS: MapConfig[] = [
 
 const STORAGE_KEY = "sg_selected_map";
 let selectedMapId: string = loadInitialMapId();
+let serverMapId: string | null = null; // last authoritative map confirmed by server
 
 function loadInitialMapId(): string {
   try {
@@ -66,6 +67,17 @@ export function setSelectedMapId(id: string) {
 
 export function getSelectedMapId(): string {
   return selectedMapId;
+}
+
+export function setServerMapId(id: string) {
+  if (!MAPS.some((m) => m.id === id)) return;
+  serverMapId = id;
+  // also mirror into selection so UI reflects the authoritative map
+  setSelectedMapId(id);
+}
+
+export function getServerMapId(): string {
+  return serverMapId || selectedMapId;
 }
 
 export function getAvailableMaps(): MapConfig[] {

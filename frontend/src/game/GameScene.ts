@@ -5,7 +5,7 @@ import InputManager from "./input/InputManager";
 import * as net from "../network";
 import Projectile from "./projectile/Projectile";
 import Powerup from "./PowerUp/Powerup";
-import { getSelectedMapConfig, setSelectedMapId, type MapConfig } from "./mapConfigs";
+import { getSelectedMapConfig, setServerMapId, type MapConfig } from "./mapConfigs";
 
 // Teleport/tween thresholds (pixels)
 const TELEPORT_THRESHOLD = 8;
@@ -21,7 +21,8 @@ export default class GameScene extends Phaser.Scene {
   private collisionLayers: Phaser.Tilemaps.TilemapLayer[] = [];
   
   private remotePlayers: Map<number, Player> = new Map();
-  private localPlayerId: number = Math.floor(Math.random() * 9000) + 1000; // random 1000-9999
+  // Keep a stable player id across restarts; fall back to a random id once per browser session.
+  private localPlayerId: number = (net.getLocalPlayerId && net.getLocalPlayerId()) || Math.floor(Math.random() * 9000) + 1000;
   private debugText?: Phaser.GameObjects.Text;
   private statusText?: Phaser.GameObjects.Text;
   private remoteProjectiles: Map<number, Projectile> = new Map();
@@ -31,6 +32,23 @@ export default class GameScene extends Phaser.Scene {
   private registered: boolean = false;
   private connCheckId: number | null = null;
   private smoothTween: Phaser.Tweens.Tween | null = null;
+  private restarting: boolean = false;
+
+  private resetWorldForRestart() {
+    // Clear server-driven objects so we can receive fresh state
+    for (const [, rp] of Array.from(this.remotePlayers.entries())) rp.destroy();
+    this.remotePlayers.clear();
+    for (const [, proj] of Array.from(this.remoteProjectiles.entries())) proj.destroy();
+    this.remoteProjectiles.clear();
+    for (const [, pu] of Array.from(this.powerups.entries())) pu.destroy();
+    this.powerups.clear();
+    // Reset local player to a safe spawn
+    if (this.player && this.player.sprite) {
+      this.player.sprite.setPosition(400, 300);
+      const body = this.player.sprite.body as Phaser.Physics.Arcade.Body | null;
+      body?.setVelocity(0, 0);
+    }
+  }
 
   constructor() {
     super("game");
@@ -53,6 +71,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.restarting = false;
     // --- MAP SETUP ---
     const map = this.make.tilemap({ key: this.mapConfig.mapKey });
     const tilesets = this.mapConfig.tilesets
@@ -110,12 +129,19 @@ export default class GameScene extends Phaser.Scene {
     this.inputManager = new InputManager(this, this.localPlayerId, () => this.player.facing || "up");
     this.unsubscribeState = net.onState((state) => this.handleState(state));
     this.unsubscribeGameStart = net.onGameStart((msg) => {
+      if (this.restarting) return;
       const next = msg && typeof msg.map === "string" && msg.map.trim() ? msg.map.trim() : this.mapConfig.id;
-      setSelectedMapId(next);
-      // Ensure we are registered before restarting so the server tracks this client after a host-triggered start.
+      setServerMapId(next);
+      // Ensure we are registered before applying restart or continuing
       try { net.registerLocal(this.localPlayerId, net.getGameId()); } catch (_) { /* ignore */ }
-      // Always restart on game_start so we reload assets and reset state
-      this.scene.restart();
+      if (next !== this.mapConfig.id) {
+        // Map changed: full restart
+        this.restarting = true;
+        this.time.delayedCall(30, () => this.scene.restart());
+      } else {
+        // Same map: keep scene, just reset world so state updates repopulate
+        this.resetWorldForRestart();
+      }
     });
     const unsubscribeConn = net.onConnectionChange((connected) => {
       if (!connected) {
@@ -137,7 +163,10 @@ export default class GameScene extends Phaser.Scene {
 
     // attempt initial registration; if not connected yet, poll until connected
     if (net.isConnected()) {
-      try { net.registerLocal(this.localPlayerId, net.getGameId()); this.registered = true; } catch (e) { /* ignore */ }
+      try {
+        net.registerLocal(this.localPlayerId, net.getGameId());
+        this.registered = true;
+      } catch (e) { /* ignore */ }
     } else {
       this.connCheckId = window.setInterval(() => {
         try {
@@ -171,12 +200,14 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private handleState(state: any) {
+    if (this.restarting) return;
     // If server reports a different map than the one currently loaded, restart with the authoritative map.
     const incomingMap = state && typeof state.map === "string" ? state.map.trim() : "";
-    if (incomingMap && incomingMap !== this.mapConfig.id) {
-      setSelectedMapId(incomingMap);
+    if (!this.restarting && incomingMap && incomingMap !== this.mapConfig.id) {
+      setServerMapId(incomingMap);
       try { net.registerLocal(this.localPlayerId, net.getGameId()); } catch (_) { /* ignore */ }
-      this.scene.restart();
+      this.restarting = true;
+      this.time.delayedCall(30, () => this.scene.restart());
       return;
     }
 
