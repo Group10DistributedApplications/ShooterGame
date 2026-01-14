@@ -33,7 +33,7 @@ export default function LobbyHeader({ connected, maxPlayers, isRegistered, regis
         )}
         {registrationError && <div style={{ fontSize: 12, color: "#ff7b7b" }}>{registrationError}</div>}
         {connected && isRegistered && (
-          <button onClick={() => sendStartGame()} style={smallButton}>Start Game</button>
+          <button onClick={() => sendStartGame()} style={smallButton}>Restart Game</button>
         )}
       </div>
     </div>

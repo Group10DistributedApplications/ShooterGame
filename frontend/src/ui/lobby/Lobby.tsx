@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { connect, disconnect, isConnected, setGameId, onConnectionChange, onRegistered, onError } from "../../network";
+import { connect, disconnect, isConnected, setGameId, onConnectionChange, onRegistered, onError, getServerUrl } from "../../network";
 import LobbyHeader from "./LobbyHeader";
 import ServerList from "./ServerList";
 import LobbyControls from "./LobbyControls";
@@ -33,9 +33,10 @@ function useRecentServers() {
   return { recent, add, remove };
 }
 
-type Props = { containerEl?: HTMLElement | null; maxPlayers?: number };
+type Props = { containerEl?: HTMLElement | null; maxPlayers?: number; visible?: boolean };
 
-export default function Lobby({ containerEl, maxPlayers }: Props = {}) {
+export default function Lobby({ containerEl, maxPlayers, visible = true }: Props = {}) {
+  if (!visible) return null;
   const { recent, add, remove } = useRecentServers();
   const [url, setUrl] = useState<string>(() => {
     try {
@@ -59,6 +60,9 @@ export default function Lobby({ containerEl, maxPlayers }: Props = {}) {
   useEffect(() => {
     const unsubConn = onConnectionChange((c) => {
       setConnected(c);
+      if (c) {
+        try { setUrl(stripProtocolPort(getServerUrl())); } catch (_) {}
+      }
       if (!c) {
         setRegistered(false);
         setRegError(null);
@@ -84,6 +88,8 @@ export default function Lobby({ containerEl, maxPlayers }: Props = {}) {
   function handleConnect() {
     const full = normalizeUrl(url);
     connect(full);
+    // immediately reflect the normalized address in the input
+    try { setUrl(stripProtocolPort(full)); } catch (_) {}
     setGameId(stripProtocolPort(full));
     add(full);
   }

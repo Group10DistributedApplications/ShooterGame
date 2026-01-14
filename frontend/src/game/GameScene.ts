@@ -24,6 +24,11 @@ const TILESET_WALLS_IMAGE = "assets/tilesets/" + TILESET_WALLS_KEY;
 const TILESET_FLOOR_IMAGE = "assets/tilesets/" + TILESET_FLOOR_KEY;
 const TILESET_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_OBJECTS_KEY;
 const TILESET_ALT_OBJECTS_IMAGE = "assets/tilesets/" + TILESET_ALT_OBJECTS_KEY;
+// Zoom factor applied to camera
+const MAP_ZOOM: number = 1.15;
+// Teleport/tween thresholds (pixels)
+const TELEPORT_THRESHOLD = 8;
+const SMOOTH_THRESHOLD = 200;
 
 export default class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -42,6 +47,7 @@ export default class GameScene extends Phaser.Scene {
   private unsubscribeState: (() => void) | null = null;
   private registered: boolean = false;
   private connCheckId: number | null = null;
+  private smoothTween: Phaser.Tweens.Tween | null = null;
 
   constructor() {
     super("game");
@@ -73,7 +79,7 @@ export default class GameScene extends Phaser.Scene {
       throw new Error("Tileset(s) not found. Check names in Tiled vs Phaser keys.");
     }
 
-    const groundLayer = map.createLayer("Floors", tilesets, 0, 0);
+    map.createLayer("Floors", tilesets, 0, 0);
     this.objectsLayer = map.createLayer("Objects", tilesets, 0, 0) || undefined;
     this.wallsLayer = map.createLayer("Walls", tilesets, 0, 0)!;
     this.wallsLayer2 = map.createLayer("Walls2", tilesets, 0, 0) || undefined;
@@ -87,7 +93,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // --- PLAYER SETUP ---
-    this.player = new Player(this, 400, 300, 0x00ff00);
+    this.player = new Player(this, 400, 300, "green");
     // Enable target-chasing so player follows server position updates
     this.player.setManualControl(false);
     // Local player collides with all solid layers (walls + pillars/objects)
@@ -101,6 +107,10 @@ export default class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, mapW, mapH);
     this.cameras.main.setBounds(0, 0, mapW, mapH);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
+    // Apply zoom to make the map and sprites appear larger; tweak MAP_ZOOM as needed
+    if (MAP_ZOOM && MAP_ZOOM !== 1) {
+      this.cameras.main.setZoom(MAP_ZOOM);
+    }
 
     // --- NETWORK SETUP ---
     // Do NOT auto-connect or auto-register here; Lobby controls connection.
@@ -163,7 +173,12 @@ export default class GameScene extends Phaser.Scene {
       seen.add(id);
       if (id === this.localPlayerId) {
         // apply authoritative server state for local player
-        this.player.setTarget(p.x || 0, p.y || 0);
+        const serverX = p.x || 0;
+        const serverY = p.y || 0;
+        const res = this.player.reconcileServerPosition(serverX, serverY, TELEPORT_THRESHOLD, SMOOTH_THRESHOLD);
+        if (res.action === "smooth") {
+          this.smoothMoveLocalTo(serverX, serverY, res.dist);
+        }
         this.player.hasSpeedBoost = p.hasSpeedBoost ?? false;
         this.player.speedBoostTimer = p.speedBoostTimer ?? 0;
         this.player.setLives(p.lives !== undefined ? p.lives : 3);
@@ -173,7 +188,7 @@ export default class GameScene extends Phaser.Scene {
 
       let rp = this.remotePlayers.get(id);
       if (!rp) {
-        rp = new Player(this, p.x || 0, p.y || 0, 0x0000ff, 30);
+        rp = new Player(this, p.x || 0, p.y || 0, "blue");
         this.remotePlayers.set(id, rp);
         // Add collision for remote player against all collidable layers
         for (const layer of this.collisionLayers) {
@@ -252,10 +267,46 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  update(time: number, delta: number) {
+  // Smoothly move the local player to (x,y) by tweening the sprite while
+  // temporarily disabling the physics body. Restores physics and target after.
+  private smoothMoveLocalTo(x: number, y: number, dist: number) {
+    if (this.smoothTween) {
+      this.smoothTween.stop();
+      this.smoothTween = null;
+    }
+    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body | undefined;
+    if (body) {
+      body.setVelocity(0, 0);
+      body.enable = false;
+    }
+    this.player.setManualControl(true);
+
+    const duration = Math.min(300, Math.max(80, Math.floor(dist * 2)));
+    const tmp = { x: this.player.x, y: this.player.y };
+    this.smoothTween = this.tweens.add({
+      targets: tmp,
+      x: { value: x, ease: "Cubic.easeOut" },
+      y: { value: y, ease: "Cubic.easeOut" },
+      duration,
+      onUpdate: () => { this.player.moveSpriteTo(tmp.x, tmp.y); },
+      onComplete: () => {
+        this.player.moveSpriteTo(x, y);
+        if (body) {
+          body.reset(x, y);
+          body.enable = true;
+          body.setVelocity(0, 0);
+        }
+        this.player.setManualControl(false);
+        this.player.setTarget(x, y);
+        this.smoothTween = null;
+      }
+    });
+  }
+
+  update(_time: number, delta: number) {
     // update local facing from input so FIRE uses correct heading
     const dir = this.inputManager.getDirection();
-    if (dir) this.player.facing = dir;
+    if (dir) this.player.updateFacing(dir);
     // Update remote projectiles (interpolate locally between server updates)
     for (const p of this.remoteProjectiles.values()) {
       p.sprite.x += p.vx * delta / 1000;

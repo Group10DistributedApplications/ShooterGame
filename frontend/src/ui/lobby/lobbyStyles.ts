@@ -8,8 +8,8 @@ export const container: React.CSSProperties = {
   height: "100%",
   display: "flex",
   alignItems: "center",
-  justifyContent: "flex-start",
-  paddingLeft: 16,
+  justifyContent: "center",
+  paddingLeft: 0,
   zIndex: 9999,
   pointerEvents: "auto",
 };
