@@ -110,11 +110,10 @@ export default class GameScene extends Phaser.Scene {
     this.inputManager = new InputManager(this, this.localPlayerId, () => this.player.facing || "up");
     this.unsubscribeState = net.onState((state) => this.handleState(state));
     this.unsubscribeGameStart = net.onGameStart((msg) => {
-      const next = msg && typeof msg.map === "string" ? msg.map : null;
-      if (next && next !== this.mapConfig.id) {
-        setSelectedMapId(next);
-        this.scene.restart();
-      }
+      const next = msg && typeof msg.map === "string" && msg.map.trim() ? msg.map.trim() : this.mapConfig.id;
+      setSelectedMapId(next);
+      // Always restart on game_start so we reload assets and reset state
+      this.scene.restart();
     });
     const unsubscribeConn = net.onConnectionChange((connected) => {
       if (!connected) {
