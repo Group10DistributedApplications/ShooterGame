@@ -20,6 +20,18 @@ import com.shootergame.game.input.InputConsumer;
 import com.shootergame.network.NetworkServer;
 import com.google.gson.Gson;
 
+/**
+ * End-to-end integration tests for the complete game processing pipeline.
+ * 
+ * Tests the full stack from WebSocket input through to broadcast output.
+ * - Player input messages flow through the entire system
+ * - InputConsumer processes tuples from the tuple space
+ * - GameLoop applies inputs and broadcasts state updates
+ * - Clients receive state broadcasts in response to their actions
+ * 
+ * Scope: NetworkServer + GameLoop + InputConsumer (full stack)
+ * Focus: Complete flow: client input → tuple → processing → broadcast
+ */
 public class GameLoopIntegrationTest {
 
     private NetworkServer server;

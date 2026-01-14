@@ -24,6 +24,17 @@ import com.shootergame.util.TupleSpaces;
 
 import com.google.gson.Gson;
 
+/**
+ * Integration tests for the network layer and tuple space.
+ * 
+ * Tests low-level WebSocket message handling and tuple space operations.
+ * - Player registration creates tuples in the game-scoped tuple space
+ * - Input messages are correctly converted to tuple space entries
+ * - The tuple space APIs work correctly for per-game isolation
+ * 
+ * Scope: NetworkServer + TupleSpaces (no GameLoop or InputConsumer)
+ * Focus: Message parsing, tuple creation, and data persistence
+ */
 public class NetworkServerIntegrationTest {
 
     private NetworkServer server;
