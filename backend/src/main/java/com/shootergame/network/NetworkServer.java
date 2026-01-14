@@ -5,6 +5,8 @@ import java.util.Map;
 
 import org.jspace.Space;
 import org.java_websocket.WebSocket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
@@ -25,6 +27,7 @@ public class NetworkServer extends WebSocketServer {
     private final ClientRegistry clientRegistry;
     private final MessageHandler messageHandler;
     private final JsonSerializer serializer;
+    private final ExecutorService broadcaster;
 
     public NetworkServer(InetSocketAddress address, Space space) {
         super(address);
@@ -32,6 +35,9 @@ public class NetworkServer extends WebSocketServer {
         this.serializer = new JsonSerializer();
         this.clientRegistry = new ClientRegistry();
         this.messageHandler = new MessageHandler(space, clientRegistry, serializer);
+        // Use a small thread pool to perform socket sends asynchronously so
+        // a slow client cannot block the game tick thread.
+        this.broadcaster = Executors.newCachedThreadPool();
     }
 
     @Override
@@ -79,22 +85,39 @@ public class NetworkServer extends WebSocketServer {
 
     public void broadcast(String message) {
         for (WebSocket socket : clientRegistry.getAllSockets()) {
-            try {
-                socket.send(message);
-            } catch (Exception e) {
-                logger.error("Error broadcasting to {}: {}", 
-                    socket.getRemoteSocketAddress(), e.getMessage());
-            }
+            broadcaster.submit(() -> {
+                try {
+                    socket.send(message);
+                } catch (Exception e) {
+                    logger.error("Error broadcasting to {}: {}", 
+                        socket.getRemoteSocketAddress(), e.getMessage());
+                }
+            });
         }
     }
 
     public void broadcastToGame(String gameId, String message) {
         for (WebSocket socket : clientRegistry.getSocketsForGame(gameId)) {
+            broadcaster.submit(() -> {
+                try {
+                    socket.send(message);
+                } catch (Exception e) {
+                    logger.error("Error broadcasting to {}: {}", 
+                        socket.getRemoteSocketAddress(), e.getMessage());
+                }
+            });
+        }
+    }
+
+    @Override
+    public void stop() throws InterruptedException {
+        try {
+            super.stop();
+        } finally {
             try {
-                socket.send(message);
+                broadcaster.shutdownNow();
             } catch (Exception e) {
-                logger.error("Error broadcasting to {}: {}", 
-                    socket.getRemoteSocketAddress(), e.getMessage());
+                logger.debug("Error shutting down broadcaster", e);
             }
         }
     }
