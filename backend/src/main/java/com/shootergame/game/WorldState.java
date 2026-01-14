@@ -40,8 +40,6 @@ public class WorldState {
     private record MapSpec(String fileName, List<String> collisionLayers) {}
     private static final Map<String, MapSpec> MAP_SPECS = Map.of(
         "map2", new MapSpec("Map2.tmj", List.of("Walls", "Walls2", "Objects")),
-        "hospital1", new MapSpec("Hospital 1.tmj", List.of("Walls", "Walls2", "Objects")),
-        "map1", new MapSpec("Map1.tmj", List.of("Walls", "Walls2", "Objects")),
         "map3", new MapSpec("Map3.tmj", List.of("Walls", "Walls2", "Objects"))
     );
 
