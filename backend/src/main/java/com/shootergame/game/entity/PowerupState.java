@@ -6,19 +6,40 @@ package com.shootergame.game.entity;
  */
 public class PowerupState {
     public final int id;
-    public final double x;
-    public final double y;
+    public double x;
+    public double y;
     public final String type;
+    public final String icon; // Path or identifier for the powerup icon/visual
     public boolean active = true;
     public double respawnTimer = 0.0; // Time until respawn after collection
+    public double repositionTimer = 0.0; // Time until position change
     
     private static final double RESPAWN_TIME = 10.0; // 10 seconds
+    private static final double REPOSITION_TIME = 15.0; // 15 seconds
 
     public PowerupState(int id, double x, double y, String type) {
         this.id = id;
         this.x = x;
         this.y = y;
         this.type = type; // "speed" or "noCooldown"
+        this.icon = getDefaultIcon(type);
+    }
+
+    public PowerupState(int id, double x, double y, String type, String icon) {
+        this.id = id;
+        this.x = x;
+        this.y = y;
+        this.type = type; // "speed" or "noCooldown"
+        this.icon = icon;
+    }
+
+    private static String getDefaultIcon(String type) {
+        return switch (type) {
+            case "speed" -> "assets/powerups/speed.png";
+            case "noCooldown" -> "assets/powerups/nocooldown.png";
+            case "spreadShot" -> "assets/powerups/spreadshot.png";
+            default -> "assets/powerups/powerup.png";
+        };
     }
 
     public void collect() {
@@ -34,6 +55,19 @@ public class PowerupState {
                 respawnTimer = 0.0;
             }
         }
+        
+        // Track repositioning timer
+        repositionTimer -= dt;
+    }
+    
+    public boolean isReadyToReposition() {
+        return repositionTimer <= 0 && active;
+    }
+    
+    public void repositionTo(double newX, double newY) {
+        this.x = newX;
+        this.y = newY;
+        this.repositionTimer = REPOSITION_TIME;
     }
 
     public boolean isActive() {

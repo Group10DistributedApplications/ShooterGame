@@ -9,11 +9,10 @@ export interface PowerupConfig {
 
 export default class Powerup {
   public sprite: Phaser.GameObjects.Container;
-  public icon: Phaser.GameObjects.Rectangle;
-  public circle: Phaser.GameObjects.Graphics;
+  public icon: Phaser.GameObjects.Sprite;
   public type: string;
   public active: boolean;
-  private rotationAngle: number = 0;
+  private bounceTime: number = 0;
 
   constructor(scene: Phaser.Scene, config: PowerupConfig) {
     this.type = config.type;
@@ -22,43 +21,30 @@ export default class Powerup {
     // Container for the powerup
     this.sprite = scene.add.container(config.x, config.y);
 
-    // Create the spinning circle background
-    this.circle = scene.make.graphics({ x: 0, y: 0 }, false);
-    this.drawCircle();
-    this.sprite.add(this.circle);
-
-    // Create the icon rectangle based on powerup type
-    const color = this.getColorForType(config.type);
-    const size = 16;
-    this.icon = scene.add.rectangle(0, 0, size, size, color);
+    // Create the icon sprite based on powerup type
+    const iconKey = this.getIconKeyForType(config.type);
+    this.icon = scene.add.sprite(0, 0, iconKey);
+    this.icon.setScale(0.5); // Adjust scale as needed
     this.sprite.add(this.icon);
+
+    // Set visibility based on active state
+    this.sprite.setVisible(config.active);
 
     // Add the sprite to physics (for collision detection)
     scene.physics.add.existing(this.sprite);
   }
 
-  private getColorForType(type: string): number {
+  private getIconKeyForType(type: string): string {
     switch (type) {
       case "speed":
-        return 0xff6600; // Orange
+        return "powerup-speed";
       case "noCooldown":
-        return 0x00ff00; // Green
+        return "powerup-noCooldown";
       case "spreadShot":
-        return 0xff00ff; // Purple/Magenta
+        return "powerup-spreadShot";
       default:
-        return 0xffffff; // White
+        return "powerup-speed"; // Fallback
     }
-  }
-
-  private drawCircle() {
-    const color = this.getColorForType(this.type);
-    const alpha = this.active ? 0.8 : 0.3;
-    this.circle.clear();
-    this.circle.fillStyle(color, alpha);
-    this.circle.beginPath();
-    this.circle.arc(0, 0, 20, 0, Math.PI * 2);
-    this.circle.closePath();
-    this.circle.fillPath();
   }
 
   static fromServer(scene: Phaser.Scene, data: any): Powerup {
@@ -75,13 +61,14 @@ export default class Powerup {
     this.sprite.x = data.x || 0;
     this.sprite.y = data.y || 0;
     this.active = data.active ?? true;
-    this.drawCircle(); // Redraw circle with updated active state
+    this.sprite.setVisible(this.active); // Show/hide based on active state
   }
 
   update(delta: number) {
-    // Rotate the powerup slowly for visual effect
-    this.rotationAngle += (delta / 1000) * Math.PI; // Full rotation per second
-    this.icon.rotation = this.rotationAngle;
+    // Bounce the powerup up and down
+    this.bounceTime += (delta / 1000) * Math.PI * 2; // Control bounce speed
+    const bounceOffset = Math.sin(this.bounceTime) * 5; // 5 pixels up and down
+    this.icon.y = bounceOffset;
   }
 
   destroy() {

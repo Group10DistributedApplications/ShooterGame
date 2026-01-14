@@ -44,12 +44,18 @@ public class WorldState {
     }
     
     private void initializePowerups() {
-        // Spawn powerups at strategic locations
+        // Spawn powerups at random valid locations
         powerups.put(nextPowerupId++, new PowerupState(1, 150.0, 200.0, "speed"));
         powerups.put(nextPowerupId++, new PowerupState(2, 490.0, 200.0, "noCooldown"));
         powerups.put(nextPowerupId++, new PowerupState(3, 320.0, 350.0, "spreadShot"));
-        logger.info("Initialized {} powerups", powerups.size());
-
+        
+        // Assign random valid positions to each powerup
+        for (PowerupState powerup : powerups.values()) {
+            double[] randomPos = getRandomValidPosition();
+            powerup.repositionTo(randomPos[0], randomPos[1]);
+        }
+        
+        logger.info("Initialized {} powerups at random positions", powerups.size());
     }
 
     private CollisionMap loadCollisionMap() {
@@ -228,12 +234,45 @@ public class WorldState {
     }
     
     /**
-     * Update all powerup timers.
+     * Update all powerup timers and reposition them as needed.
      */
     public void updatePowerups(double dt) {
         for (PowerupState powerup : powerups.values()) {
             powerup.update(dt);
+            
+            // Reposition powerup if it's time and it's active
+            if (powerup.isReadyToReposition()) {
+                double[] randomPos = getRandomValidPosition();
+                powerup.repositionTo(randomPos[0], randomPos[1]);
+                logger.debug("Repositioned powerup {} to ({}, {})", powerup.id, randomPos[0], randomPos[1]);
+            }
         }
+    }
+    
+    /**
+     * Generate a random position on the map that is not blocked by walls/obstacles.
+     * Uses a simple random sampling approach with collision checking.
+     */
+    private double[] getRandomValidPosition() {
+        java.util.Random rand = new java.util.Random();
+        double mapWidth = collisionMap.getPixelWidth();
+        double mapHeight = collisionMap.getPixelHeight();
+        double margin = 50.0; // Keep powerups away from edges
+        double maxAttempts = 100;
+        
+        for (int attempt = 0; attempt < maxAttempts; attempt++) {
+            double x = margin + rand.nextDouble() * (mapWidth - 2 * margin);
+            double y = margin + rand.nextDouble() * (mapHeight - 2 * margin);
+            
+            // Check if position is valid (not blocked)
+            if (!collisionMap.isBlocked(x, y)) {
+                return new double[]{x, y};
+            }
+        }
+        
+        // Fallback: return center of map if no valid position found
+        logger.warn("Could not find valid powerup position after {} attempts, using center", (int)maxAttempts);
+        return new double[]{mapWidth / 2, mapHeight / 2};
     }
     
     /**

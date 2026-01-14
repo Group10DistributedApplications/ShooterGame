@@ -54,6 +54,11 @@ export default class GameScene extends Phaser.Scene {
     this.load.image(TILESET_FLOOR_KEY, TILESET_FLOOR_IMAGE);
     this.load.image(TILESET_OBJECTS_KEY, TILESET_OBJECTS_IMAGE);
     this.load.image(TILESET_ALT_OBJECTS_KEY, TILESET_ALT_OBJECTS_IMAGE);
+    
+    // Load powerup images
+    this.load.image('powerup-speed', 'src/game/PowerUp/speed.png');
+    this.load.image('powerup-noCooldown', 'src/game/PowerUp/nocooldown.png');
+    this.load.image('powerup-spreadShot', 'src/game/PowerUp/spreadshot.png');
   }
 
   create() {
