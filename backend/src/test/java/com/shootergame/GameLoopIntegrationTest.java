@@ -67,6 +67,11 @@ public class GameLoopIntegrationTest {
 
         client.connectBlocking();
 
+        // Register so the server knows which game this socket belongs to and will broadcast state to it
+        client.send(gson.toJson(java.util.Map.of("type", "register", "playerId", 5, "gameId", "default")));
+        // Small delay to allow the server to store the registration before inputs arrive
+        Thread.sleep(100);
+
         // send input; GameLoop should consume eventual 'event' and then broadcast 'state'
         client.send(gson.toJson(java.util.Map.of("type", "input", "playerId", 5, "action", "RIGHT")));
 
