@@ -5,7 +5,7 @@ import InputManager from "./input/InputManager";
 import * as net from "../network";
 import Projectile from "./projectile/Projectile";
 import Powerup from "./PowerUp/Powerup";
-import { getSelectedMapConfig, setSelectedMapId, MapConfig } from "./mapConfigs";
+import { getSelectedMapConfig, setSelectedMapId, type MapConfig } from "./mapConfigs";
 
 // Teleport/tween thresholds (pixels)
 const TELEPORT_THRESHOLD = 8;
