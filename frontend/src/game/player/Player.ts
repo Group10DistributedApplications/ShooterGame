@@ -14,12 +14,14 @@ export default class Player {
   private livesText: Phaser.GameObjects.Text;
   private manualControl: boolean = false;
   private spriteHorizontal: string;
-  private spriteVertical: string;
+  private spriteVerticalBack: string;
+  private spriteVerticalFront: string;
 
   constructor(scene: Phaser.Scene, x: number, y: number, spriteKey = "green", size = 32) {
     this.scene = scene;
     this.spriteHorizontal = `player-${spriteKey}`;
-    this.spriteVertical = `player-${spriteKey}-topdown`;
+    this.spriteVerticalBack = `player-${spriteKey}-topdown-back`;
+    this.spriteVerticalFront = `player-${spriteKey}-topdown-front`;
     
     // Create sprite (start with horizontal)
     this.sprite = scene.add.sprite(x, y, this.spriteHorizontal);
@@ -117,10 +119,16 @@ export default class Player {
       this.sprite.setTexture(this.spriteHorizontal);
       this.sprite.setFlipY(false);
       this.sprite.setFlipX(newFacing === "left"); // FlipX = horizontal flip
-    } else {
-      this.sprite.setTexture(this.spriteVertical);
+    } else if (newFacing === "up") {
+      // Moving up = show back
+      this.sprite.setTexture(this.spriteVerticalBack);
       this.sprite.setFlipX(false);
-      this.sprite.setFlipY(newFacing === "down"); // FlipY = vertical flip
+      this.sprite.setFlipY(false);
+    } else {
+      // Moving down = show front
+      this.sprite.setTexture(this.spriteVerticalFront);
+      this.sprite.setFlipX(false);
+      this.sprite.setFlipY(false);
     }
   }
 
