@@ -112,6 +112,8 @@ export default class GameScene extends Phaser.Scene {
     this.unsubscribeGameStart = net.onGameStart((msg) => {
       const next = msg && typeof msg.map === "string" && msg.map.trim() ? msg.map.trim() : this.mapConfig.id;
       setSelectedMapId(next);
+      // Ensure we are registered before restarting so the server tracks this client after a host-triggered start.
+      try { net.registerLocal(this.localPlayerId, net.getGameId()); } catch (_) { /* ignore */ }
       // Always restart on game_start so we reload assets and reset state
       this.scene.restart();
     });
@@ -169,6 +171,15 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private handleState(state: any) {
+    // If server reports a different map than the one currently loaded, restart with the authoritative map.
+    const incomingMap = state && typeof state.map === "string" ? state.map.trim() : "";
+    if (incomingMap && incomingMap !== this.mapConfig.id) {
+      setSelectedMapId(incomingMap);
+      try { net.registerLocal(this.localPlayerId, net.getGameId()); } catch (_) { /* ignore */ }
+      this.scene.restart();
+      return;
+    }
+
     const players: any[] = state.players || [];
     const seen = new Set<number>();
     for (const p of players) {
