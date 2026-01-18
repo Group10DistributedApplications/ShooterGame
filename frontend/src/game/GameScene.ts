@@ -7,6 +7,9 @@ import Projectile from "./projectile/Projectile";
 import Powerup from "./PowerUp/Powerup";
 import { getSelectedMapConfig, setServerMapId, type MapConfig } from "./mapConfigs";
 
+const PLAYER_COLORS = ['green', 'blue', 'red', 'yellow'] as const;
+type PlayerColor = typeof PLAYER_COLORS[number];
+
 // Teleport/tween thresholds (pixels)
 const TELEPORT_THRESHOLD = 8;
 const SMOOTH_THRESHOLD = 200;
@@ -33,6 +36,13 @@ export default class GameScene extends Phaser.Scene {
   private connCheckId: number | null = null;
   private smoothTween: Phaser.Tweens.Tween | null = null;
   private restarting: boolean = false;
+
+   private getPlayerColor(playerId: number): string {
+    const colors: string[] = ['green', 'blue', 'red', 'yellow'];
+    // Use player ID to pick a consistent color
+    const colorIndex = Math.abs(playerId) % colors.length;
+    return colors[colorIndex];
+  }
 
   private resetWorldForRestart() {
     // Clear server-driven objects so we can receive fresh state
@@ -68,6 +78,12 @@ export default class GameScene extends Phaser.Scene {
     this.load.image("player-blue", "src/assets/sprites/Sprite-Blue.png");
     this.load.image("player-blue-topdown-back", "src/assets/sprites/Sprite-Blue-TopDown-Back.png");
     this.load.image("player-blue-topdown-front", "src/assets/sprites/Sprite-Blue-TopDown-Front.png");
+    this.load.image("player-red", "src/assets/sprites/Sprite-Red.png");
+    this.load.image("player-red-topdown-back", "src/assets/sprites/Sprite-Red-TopDown-Back.png");
+    this.load.image("player-red-topdown-front", "src/assets/sprites/Sprite-Red-TopDown-Front.png");
+    this.load.image("player-yellow", "src/assets/sprites/Sprite-Yellow.png");
+    this.load.image("player-yellow-topdown-back", "src/assets/sprites/Sprite-Yellow-TopDown-Back.png");
+    this.load.image("player-yellow-topdown-front", "src/assets/sprites/Sprite-Yellow-TopDown-Front.png");
     this.load.image("projectile", "src/assets/sprites/Sprite-Projectile.png");
     // Load powerup images
     this.load.image('powerup-speed', 'src/game/PowerUp/speed.png');
@@ -110,7 +126,8 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // --- PLAYER SETUP ---
-    this.player = new Player(this, 400, 300, "green");
+    const localColor = this.getPlayerColor(this.localPlayerId);
+    this.player = new Player(this, 400, 300, localColor);
     // Enable target-chasing so player follows server position updates
     this.player.setManualControl(false);
     // Local player collides with all solid layers (walls + pillars/objects)
@@ -238,7 +255,8 @@ export default class GameScene extends Phaser.Scene {
 
       let rp = this.remotePlayers.get(id);
       if (!rp) {
-        rp = new Player(this, p.x || 0, p.y || 0, "blue");
+        const color = this.getPlayerColor(id);
+        rp = new Player(this, p.x || 0, p.y || 0, color);
         this.remotePlayers.set(id, rp);
         // Add collision for remote player against all collidable layers
         for (const layer of this.collisionLayers) {
