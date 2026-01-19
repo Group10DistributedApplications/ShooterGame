@@ -55,8 +55,9 @@ public class TupleSpaces {
     /**
      * Remove a player tuple for a game if present.
      */
-    public static void removePlayer(Space rootSpace, String gameId, int playerId) throws InterruptedException {
+    public static boolean removePlayer(Space rootSpace, String gameId, int playerId) throws InterruptedException {
         Space s = getOrCreateGameSpace(gameId);
+        boolean removed = false;
         try {
             // check if present
             List<Object[]> found = s.queryAll(new ActualField(PLAYER), new FormalField(Integer.class));
@@ -66,8 +67,12 @@ public class TupleSpaces {
                         int pid = ((Number) r[1]).intValue();
                         if (pid == playerId) {
                             // remove the matching tuple (use ActualField to match exact value)
-                            s.get(new ActualField(PLAYER), new ActualField(playerId));
-                            return;
+                            try {
+                                s.get(new ActualField(PLAYER), new ActualField(playerId));
+                                removed = true;
+                            } catch (Exception e) {
+                                // if another thread consumed it, ignore and continue
+                            }
                         }
                     }
                 }
@@ -77,6 +82,47 @@ public class TupleSpaces {
         } catch (Exception ex) {
             // ignore if not present or other non-fatal errors
         }
+        return removed;
+    }
+
+    /**
+     * Attempt to remove a player tuple from any game space where it exists.
+     */
+    public static boolean removePlayerFromAny(Space rootSpace, int playerId) throws InterruptedException {
+        boolean removedAny = false;
+        try {
+            for (Map.Entry<String, Space> e : gameSpaces.entrySet()) {
+                String gid = e.getKey();
+                Space s = e.getValue();
+                try {
+                    List<Object[]> found = s.queryAll(new ActualField(PLAYER), new FormalField(Integer.class));
+                    if (found != null) {
+                        for (Object[] r : found) {
+                            if (r.length >= 2 && r[1] instanceof Number) {
+                                int pid = ((Number) r[1]).intValue();
+                                if (pid == playerId) {
+                                    try {
+                                        s.get(new ActualField(PLAYER), new ActualField(playerId));
+                                        removedAny = true;
+                                    } catch (Exception ex) {
+                                        // ignore race where tuple already removed
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (InterruptedException ie) {
+                    throw ie;
+                } catch (Exception ex) {
+                    // ignore and continue to next space
+                }
+            }
+        } catch (InterruptedException ie) {
+            throw ie;
+        } catch (Exception ex) {
+            // ignore overall
+        }
+        return removedAny;
     }
 
     public static Object[] getInputBlockingAny(Space rootSpace) throws InterruptedException {
