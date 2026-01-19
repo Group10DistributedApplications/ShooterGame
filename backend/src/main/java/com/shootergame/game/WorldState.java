@@ -36,6 +36,9 @@ public class WorldState {
     private volatile String currentMapId;
     // whether a match is currently running for this world
     private volatile boolean matchRunning = false;
+    // Track player registration order to assign colors
+    private final java.util.List<Integer> playerRegistrationOrder = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final String[] PLAYER_COLORS = {"green", "red", "blue", "yellow"};
 
     private record MapSpec(String fileName, List<String> collisionLayers) {}
     private static final Map<String, MapSpec> MAP_SPECS = Map.of(
@@ -190,13 +193,28 @@ public class WorldState {
                     if (r.length >= 2 && r[1] instanceof Number) {
                         int pid = ((Number) r[1]).intValue();
                         registered.add(pid);
-                        players.computeIfAbsent(pid, PlayerState::new);
+                        
+                        // Track registration order for color assignment
+                        if (!playerRegistrationOrder.contains(pid)) {
+                            playerRegistrationOrder.add(pid);
+                        }
+                        
+                        // Create player if not exists and assign color based on order
+                        PlayerState ps = players.computeIfAbsent(pid, PlayerState::new);
+                        int orderIndex = playerRegistrationOrder.indexOf(pid);
+                        ps.color = PLAYER_COLORS[orderIndex % PLAYER_COLORS.length];
                     }
                 }
             }
 
             // Remove players that are no longer registered
-            players.keySet().removeIf(id -> !registered.contains(id));
+            players.keySet().removeIf(id -> {
+                if (!registered.contains(id)) {
+                    playerRegistrationOrder.remove(Integer.valueOf(id));
+                    return true;
+                }
+                return false;
+            });
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (Exception e) {

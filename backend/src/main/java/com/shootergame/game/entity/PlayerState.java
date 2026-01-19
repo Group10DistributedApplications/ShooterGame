@@ -6,6 +6,7 @@ package com.shootergame.game.entity;
  */
 public class PlayerState {
     public final int id;
+    public String color = "green"; // Player color: green, red, blue, or yellow
     // Bounds derive from the collision map at runtime; defaults are overwritten by WorldState
     private double mapWidth = 1120.0;
     private double mapHeight = 960.0;

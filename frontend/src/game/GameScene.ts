@@ -7,9 +7,6 @@ import Projectile from "./projectile/Projectile";
 import Powerup from "./PowerUp/Powerup";
 import { getSelectedMapConfig, setServerMapId, type MapConfig } from "./mapConfigs";
 
-const PLAYER_COLORS = ['green', 'blue', 'red', 'yellow'] as const;
-type PlayerColor = typeof PLAYER_COLORS[number];
-
 // Teleport/tween thresholds (pixels)
 const TELEPORT_THRESHOLD = 8;
 const SMOOTH_THRESHOLD = 200;
@@ -36,13 +33,6 @@ export default class GameScene extends Phaser.Scene {
   private connCheckId: number | null = null;
   private smoothTween: Phaser.Tweens.Tween | null = null;
   private restarting: boolean = false;
-
-   private getPlayerColor(playerId: number): string {
-    const colors: string[] = ['green', 'blue', 'red', 'yellow'];
-    // Use player ID to pick a consistent color
-    const colorIndex = Math.abs(playerId) % colors.length;
-    return colors[colorIndex];
-  }
 
   private resetWorldForRestart() {
     // Clear server-driven objects so we can receive fresh state
@@ -126,8 +116,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     // --- PLAYER SETUP ---
-    const localColor = this.getPlayerColor(this.localPlayerId);
-    this.player = new Player(this, 400, 300, localColor);
+    this.player = new Player(this, 400, 300, "green");
     // Enable target-chasing so player follows server position updates
     this.player.setManualControl(false);
     // Local player collides with all solid layers (walls + pillars/objects)
@@ -246,6 +235,10 @@ export default class GameScene extends Phaser.Scene {
         if (res.action === "smooth") {
           this.smoothMoveLocalTo(serverX, serverY, res.dist);
         }
+        // Update local player color from server
+        if (p.color && p.color !== this.player.getSpriteKey()) {
+          this.player.updateColor(p.color);
+        }
         this.player.hasSpeedBoost = p.hasSpeedBoost ?? false;
         this.player.speedBoostTimer = p.speedBoostTimer ?? 0;
         this.player.setLives(p.lives !== undefined ? p.lives : 3);
@@ -255,13 +248,16 @@ export default class GameScene extends Phaser.Scene {
 
       let rp = this.remotePlayers.get(id);
       if (!rp) {
-        const color = this.getPlayerColor(id);
+        const color = p.color || "blue"; // Use server color or default to blue
         rp = new Player(this, p.x || 0, p.y || 0, color);
         this.remotePlayers.set(id, rp);
         // Add collision for remote player against all collidable layers
         for (const layer of this.collisionLayers) {
           this.physics.add.collider(rp.sprite, layer);
         }
+      } else if (p.color && p.color !== rp.getSpriteKey()) {
+        // Update color if it changed
+        rp.updateColor(p.color);
       }
       rp.setTarget(p.x || 0, p.y || 0);
       rp.hasSpeedBoost = p.hasSpeedBoost ?? false;

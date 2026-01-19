@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 
 export default class Player {
+  private scene: Phaser.Scene;
   public sprite: Phaser.GameObjects.Sprite;
   public facing: "up" | "down" | "left" | "right" = "up";
   public speed: number = 200;
@@ -16,9 +17,11 @@ export default class Player {
   private spriteHorizontal: string;
   private spriteVerticalBack: string;
   private spriteVerticalFront: string;
+  private spriteKey: string; // Track current color key (e.g., "green", "red")
 
   constructor(scene: Phaser.Scene, x: number, y: number, spriteKey = "green", size = 32) {
     this.scene = scene;
+    this.spriteKey = spriteKey;
     this.spriteHorizontal = `player-${spriteKey}`;
     this.spriteVerticalBack = `player-${spriteKey}-topdown-back`;
     this.spriteVerticalFront = `player-${spriteKey}-topdown-front`;
@@ -191,6 +194,31 @@ export default class Player {
     this.sprite.x = x;
     this.sprite.y = y;
     this.livesText.setPosition(x, y - 25);
+  }
+
+  // Update the player's color by changing sprite keys
+  updateColor(newColor: string) {
+    if (this.spriteKey === newColor) return;
+    
+    this.spriteKey = newColor;
+    this.spriteHorizontal = `player-${newColor}`;
+    this.spriteVerticalBack = `player-${newColor}-topdown-back`;
+    this.spriteVerticalFront = `player-${newColor}-topdown-front`;
+    
+    // Update the current texture based on facing direction
+    if (this.facing === "left" || this.facing === "right") {
+      this.sprite.setTexture(this.spriteHorizontal);
+      this.sprite.setFlipX(this.facing === "left");
+    } else if (this.facing === "up") {
+      this.sprite.setTexture(this.spriteVerticalBack);
+    } else {
+      this.sprite.setTexture(this.spriteVerticalFront);
+    }
+  }
+
+  // Get current sprite color key
+  getSpriteKey(): string {
+    return this.spriteKey;
   }
 
   get x() { return this.sprite.x; }
