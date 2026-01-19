@@ -69,6 +69,12 @@ public class MessageHandler {
         try {
             clientRegistry.register(conn, gameId, playerId);
             TupleSpaces.putPlayer(space, gameId, playerId);
+                // Send a single neutral movement to initialize player state
+                try {
+                    TupleSpaces.putInput(space, gameId, playerId, "STOP_RIGHT", "");
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
             logger.info("Player {} registered for gameId={}", playerId, gameId);
         } catch (IllegalStateException e) {
             // registry enforces capacity
