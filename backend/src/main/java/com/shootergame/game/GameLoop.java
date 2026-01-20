@@ -253,7 +253,8 @@ public class GameLoop {
                 "players", alivePlayers,
                 "projectiles", world.getProjectiles().values(),
                 "powerups", world.getPowerups().values(),
-                "map", world.getCurrentMapId()
+                "map", world.getCurrentMapId(),
+                "running", world.isMatchRunning()
             );
             String json = serializer.toJson(state);
             logger.debug("Broadcasting state for game={}", gameId);

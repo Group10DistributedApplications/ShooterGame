@@ -16,6 +16,15 @@ export default function StartButton({ targetEl }: Props) {
   useEffect(() => {
     const unsubConn = net.onConnectionChange((c) => setConnected(c));
     const unsubReg = net.onRegistered(() => setRegistered(true));
+    const unsubState = net.onState((s) => {
+      try {
+        // hide the start button if the server reports a match is running
+        if (s && typeof s.running === "boolean") {
+          setVisible(!s.running);
+          if (s.running) setLabel("Start Game");
+        }
+      } catch (_) {}
+    });
     const unsubGameOver = net.onGameOver(() => {
       // show button again as "Play Again" when a match ends
       setLabel("Play Again");
@@ -29,6 +38,7 @@ export default function StartButton({ targetEl }: Props) {
     return () => {
       try { unsubConn(); } catch (_) {}
       try { unsubReg(); } catch (_) {}
+      try { unsubState(); } catch (_) {}
       try { unsubGameOver(); } catch (_) {}
       try { unsubGameStart(); } catch (_) {}
     };

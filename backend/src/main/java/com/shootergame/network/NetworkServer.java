@@ -7,6 +7,8 @@ import org.jspace.Space;
 import org.java_websocket.WebSocket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 import org.slf4j.Logger;
@@ -28,6 +30,7 @@ public class NetworkServer extends WebSocketServer {
     private final MessageHandler messageHandler;
     private final JsonSerializer serializer;
     private final ExecutorService broadcaster;
+    private final ScheduledExecutorService sweeper;
 
     public NetworkServer(InetSocketAddress address, Space space) {
         super(address);
@@ -38,6 +41,12 @@ public class NetworkServer extends WebSocketServer {
         // Use a small thread pool to perform socket sends asynchronously so
         // a slow client cannot block the game tick thread.
         this.broadcaster = Executors.newCachedThreadPool();
+        // Scheduled sweeper to detect closed sockets and clean up tuples
+        this.sweeper = Executors.newSingleThreadScheduledExecutor();
+        // Configure connection lost timeout so the underlying library detects
+        // dropped clients sooner than TCP timeouts. Value in seconds.
+        this.setConnectionLostTimeout(10);
+        this.sweeper.scheduleAtFixedRate(this::cleanupClosedSockets, 3, 3, TimeUnit.SECONDS);
     }
 
     @Override
@@ -55,7 +64,18 @@ public class NetworkServer extends WebSocketServer {
             Integer pid = clientRegistry.getPlayerId(conn);
             String gid = clientRegistry.getGameId(conn);
             if (pid != null) {
-                TupleSpaces.removePlayer(space, gid != null ? gid : "default", pid);
+                boolean removed = false;
+                if (gid != null) {
+                    removed = TupleSpaces.removePlayer(space, gid, pid);
+                } else {
+                    // try to remove from any game space if we don't know the game id
+                    removed = TupleSpaces.removePlayerFromAny(space, pid);
+                }
+                if (removed) {
+                    logger.info("Removed player {} tuple for game={} on disconnect", pid, gid);
+                } else {
+                    logger.info("No player tuple found for player {} on disconnect (game={})", pid, gid);
+                }
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
@@ -76,6 +96,74 @@ public class NetworkServer extends WebSocketServer {
         logger.error("WebSocket error ({}): {}", 
             (conn != null ? conn.getRemoteSocketAddress() : "server"), 
             ex.getMessage(), ex);
+        // Attempt to clean up player tuples on socket error as well
+        if (conn != null) {
+            try {
+                Integer pid = clientRegistry.getPlayerId(conn);
+                String gid = clientRegistry.getGameId(conn);
+                if (pid != null) {
+                    boolean removed = false;
+                    if (gid != null) {
+                        removed = TupleSpaces.removePlayer(space, gid, pid);
+                    } else {
+                        removed = TupleSpaces.removePlayerFromAny(space, pid);
+                    }
+                    if (removed) {
+                        logger.info("Removed player {} tuple for game={} on error", pid, gid);
+                    } else {
+                        logger.info("No player tuple found for player {} on error (game={})", pid, gid);
+                    }
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                logger.debug("Failed to remove player tuple on error", e);
+            }
+
+            clientRegistry.unregister(conn);
+        }
+    }
+
+    /**
+     * Periodically invoked to clean up any sockets that appear closed but
+     * haven't been unregistered (e.g. abrupt browser reload).
+     */
+    private void cleanupClosedSockets() {
+        try {
+            for (WebSocket socket : clientRegistry.getAllSockets()) {
+                try {
+                    if (!socket.isOpen()) {
+                        Integer pid = clientRegistry.getPlayerId(socket);
+                        String gid = clientRegistry.getGameId(socket);
+                        if (pid != null) {
+                            logger.info("Sweeper removing player {} for closed socket (game={})", pid, gid);
+                            try {
+                                boolean removed = false;
+                                if (gid != null) {
+                                    removed = TupleSpaces.removePlayer(space, gid, pid);
+                                } else {
+                                    removed = TupleSpaces.removePlayerFromAny(space, pid);
+                                }
+                                if (removed) {
+                                    logger.info("Sweeper removed player {} tuple (game={})", pid, gid);
+                                } else {
+                                    logger.info("Sweeper found no tuple for player {} (game={})", pid, gid);
+                                }
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                            } catch (Exception e) {
+                                logger.debug("Sweeper failed to remove player tuple", e);
+                            }
+                        }
+                        clientRegistry.unregister(socket);
+                    }
+                } catch (Exception e) {
+                    logger.debug("Error while sweeping socket cleanup", e);
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Sweeper failed", e);
+        }
     }
 
     @Override
@@ -118,6 +206,11 @@ public class NetworkServer extends WebSocketServer {
                 broadcaster.shutdownNow();
             } catch (Exception e) {
                 logger.debug("Error shutting down broadcaster", e);
+            }
+            try {
+                sweeper.shutdownNow();
+            } catch (Exception e) {
+                logger.debug("Error shutting down sweeper", e);
             }
         }
     }
