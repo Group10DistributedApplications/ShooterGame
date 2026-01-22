@@ -11,6 +11,7 @@ Project contributors:
 * Amalie (s235119@student.dtu.dk) - S235119
 * Victor (s235077@student.dtu.dk) - AlmostMid
 * Karl (s235066@student.dtu.dk) - karlpedro
+
 * Balder (s235094@student.dtu.dk) - TheRealChair
 * Viktor (s214707@student.dtu.dk) - ViktorKjer
 
@@ -29,6 +30,8 @@ Running on multiple computers video: https://youtu.be/A3wOy1fM8dA
 
 The main coordination challenge we encountered was synchronizing player movement across clients in a way that was responsive and consistent. Our initial approach was to let each client compute its own movement locally and periodically send updated positions to the server. This approach caused noticeable lag and jitter, especially under network delay, because the server had to reconcile late or inconsistent position updates from different clients. As a result, the game state often diverged, making movement feel unreliable, and bullet spawning where the player wasn’t located.
 To address this, we changed the coordination model so that clients no longer send positions, but instead send input actions (e.g. movement commands). At the center of this solution is the TupleSpaces utility class. Here we define the tuple formats ("player" and "input") and manage one SequentialSpace per game ID. Each game instance gets its own space, so inputs and player registrations from different games never interfere with each other. This follows the basic tuple space idea from Lecture 01, where a tuple space is used as a shared coordination medium that isolates interacting components.
+
+<img width="296" height="268" alt="Model" src="https://github.com/user-attachments/assets/c423ed38-34dd-4b37-8758-27a4969c1dbc" />
 
 Instead of clients writing directly to shared game state, the NetworkServer only translates incoming network messages into tuples. When a client sends an action, the server inserts an "input" tuple into the correct game’s space using putInput(). The network layer does not wait for the input to be processed; it simply publishes the tuple and continues. This decoupling ensures that slow or laggy clients do not block the simulation, and that all movement decisions are made centrally by the server.
 On the simulation side, the InputConsumer runs in its own thread and continuously retrieves input tuples using getInputBlockingAny(). This directly follows the producer–consumer pattern with blocking operations, as presented in Lecture 02 – Concurrent Programming (slides 6–7). The consumer blocks until input is available and then forwards it to the GameLoop, which applies the input to the authoritative world state. By consuming inputs instead of synchronizing positions, the server remains fully in control of movement, physics, and collision handling.
